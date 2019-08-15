@@ -13,4 +13,4 @@ The current ```jsmpeg``` provides an insecure websocket server that clients can 
 
 
 [status]: https://img.shields.io/badge/alpha-do%20not%20use-orange "Alpha status, do not use" 
-[logo]: ./img/logo.svg "VW logo"
+[logo]: ./img/logo.png "VW logo"
