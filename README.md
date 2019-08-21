@@ -7,11 +7,42 @@
 Video over websockets, written in golang as an alternative to the node.js-based relay in [phoboslab/jsmpeg](https://github.com/phoboslabs/msjpeg).
 
 ## Why?
-The current ```jsmpeg``` provides an insecure websocket server that clients can log into. One of the main use-cases for ```jsmpeg``` is when network permissions are so constrained that webRTC is not possible.  Since those network policy conditions also usually preclude offering an externally-visible server, then we need to do _something_ to join up the dots with an external user, such as websocket bridge to another server. I wrote the experimental [streamer](https://github.com/timdrysdale/streamer) to fulfil this role, but for some of the constrained targets on which I would like to deploy ```jsmpeg```, it would be attractive to avoid having to install node.js, and duplicate the handling of each message. On a c5.large AWS server, ```streamer``` (operating in server-server mode) uses approx 1% of CPU per single-in single-out video stream at 1000-1300kbps, and slightly less than 1% of memory (Intel Xeon 8100 series with 4GB RAM), including in both cases the overhead for nginx to manage the reverse-proxying (approx 3/10 of that 1% resource usage). That's a powerful CPU, so on a more constrained target, there will be a definite benefit to avoiding double handling, as well as approximately halving the installation size by not needing node.
+Mainly for my own amusement. The current ```jsmpeg``` provides an websocket server that a browser client can log into to get a stream of MPEGTS video. My use-case for```jsmpeg``` is for networks too restrictive to support WebRTC, which usually also precludes hosting a server that is visible to external users outside the firewall. However, if we use switch from using a websocket server to using a websocket client then we can connect to an external server. It'd be possible to tweak the ```node.js``` demo to achieve this, but frankly, I wanted a practice project for ```go``` and it might yield some deployment convenience and a small performance bump. Related ```golang``` projects include [ws-tcp-relay](https://github.com/isobit/ws-tcp-relay) which calls itself [websocketd](https://github.com/joewalnes/websocketd) for TCP instead of ```STDIN``` and ```STDOUT```, but [ws-tcp-relay](https://github.com/isobit/ws-tcp-relay) has a websocket server, not a client. 
 
 ## Usage
 
-### configuration
+     TODO - put help message here
+
+      --listen
+      --forward
+      --control
+      --video_cmd (may need to include v4l2-ctl to set camera options)
+      --audio_cmd (may need to include alsa to set audio options)
+
+
+
+## Installation 
+
+Download and compile the repo 
+
+    $ go get github.com/timdrysdale/vw
+    $ cd $GO_PATH/src/github.com/timdrysdale/vw
+    $ go get ./...
+    $ go build
+
+
+## Internals
+
+![alt text][internals]
+
+
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             
+
+
+## Configuration
+
+sysdefault:CARD=C920
+
 
 whether to record stream to disk
 where to record stream to disk
@@ -47,6 +78,11 @@ Include a file that can be streamed with ffmpeg. Stream it to ```vw```, configur
 Time stamp the arrival time of packets at the test websocket server, both with and without the write-to-file feature enabled.
 
 
+## Device configuration
+
+There's a description of using alsa and pulseaudio with docker [here](https://github.com/mviereck/x11docker/wiki/Container-sound:-ALSA-or-Pulseaudio).
+
 
 [status]: https://img.shields.io/badge/alpha-do%20not%20use-orange "Alpha status, do not use" 
 [logo]: ./img/logo.png "VW logo"
+[internals]: ./img/internals.png "Diagram of VW internals showing http server, websocket client, mux, monitor, and syscall for ffmpegs"
