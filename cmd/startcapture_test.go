@@ -68,11 +68,13 @@ var h, err = url.Parse("http://127.0.0.1:8080/")
 var inputName1 = "some/amazing/long/path"
 var endpoint1 = strings.Join([]string{hosturl, inputName1}, "")
 
-var command0 = "ffmpeg -f v4l2 -framerate 25 -video_size 640x480 -i /dev/video0 -s 640x480 -b:v 1024k -bf 0 -f mpegts -codec:v -s 640x480 -b:v 1024k -bf 0 -f mpegts -codec:v mpeg1video http://127.0.0.1:8080/videoFrontMedium -s 320x240 -b:v 512k -bf 0 -f mpegts -codec:v mpeg1video http://127.0.0.1:8080/videoFrontSmall"
+var command0 = "ffmpeg -f v4l2 -framerate 25 -video_size 640x480 -i /dev/video0 -s 640x480 -b:v 1024k -bf 0 -f mpegts -codec:v mpeg1video -s 640x480 -b:v 1024k -bf 0 -f mpegts -codec:v mpeg1video http://127.0.0.1:8080/videoFrontMedium -s 320x240 -b:v 512k -bf 0 -f mpegts -codec:v mpeg1video http://127.0.0.1:8080/videoFrontSmall"
 
-var command1 = "ffmpeg -f v4l2 -framerate 25 -video_size 640x480 -i /dev/video0 -s 640x480 -b:v 1024k -bf 0 -f mpegts -codec:v mpeg1video -s 640x480 -b:v 1024k -bf 0 -f mpegts -codec:v mpeg1video mpeg1video http://127.0.0.1:8080/videoSideMedium -s 320x240 -b:v 512k -bf 0 -f mpegts -codec:v mpeg1video http://127.0.0.1:8080/videoSideSmall"
+var command1 = "ffmpeg -f v4l2 -framerate 25 -video_size 640x480 -i /dev/video0 -s 640x480 -b:v 1024k -bf 0 -f mpegts -codec:v mpeg1video -s 640x480 -b:v 1024k -bf 0 -f mpegts -codec:v mpeg1video http://127.0.0.1:8080/videoSideMedium -s 320x240 -b:v 512k -bf 0 -f mpegts -codec:v mpeg1video http://127.0.0.1:8080/videoSideSmall"
 
 var command2 = "ffmpeg -f alsa -ar 44100 -i hw:0 -f mpegts -codec:a mp2 -b:a 128k -muxdelay 0.001 -ac 1 -filter:a ''volume=50'' http://127.0.0.1:8080/audio"
+
+var expandedCommands = []string{command0, command1, command2}
 
 var expectedEndpoints = Endpoints{"videoFrontMedium": "http://127.0.0.1:8080/videoFrontMedium",
 	"videoFrontSmall": "http://127.0.0.1:8080/videoFrontSmall",
@@ -164,4 +166,14 @@ func TestExpandCaptureCommands(t *testing.T) {
 			t.Errorf("\nEndpoint for %v:\nexpected %v\ngot %v\n", k, val, endpoints[k])
 		}
 	}
+
+	// expand the commands in-place
+	expandCaptureCommands(&c, endpoints)
+
+	for i, expanded := range expandedCommands {
+		if clean(expanded) != c.Commands[i] {
+			t.Errorf("\nCommand incorrectly expanded\nexp: %v\ngot: %v\n", expanded, c.Commands[i])
+		}
+	}
+
 }
