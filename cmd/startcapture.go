@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"fmt"
 	"net/url"
 )
 
@@ -19,6 +18,19 @@ func constructEndpoint(h *url.URL, inputName string) string {
 	return h.String()
 }
 
+func populateInputNames(o *Output) {
+
+	//for each stream, copy each item in Feeds as string into InputNames
+	for i, s := range o.Streams {
+		feedSlice, _ := s.Feeds.([]interface{})
+		for _, feed := range feedSlice {
+			o.Streams[i].InputNames = append(o.Streams[i].InputNames, feed.(string))
+		}
+
+	}
+
+}
+
 func mapEndpoints(o Output, h *url.URL) Endpoints {
 
 	//go through feeds to collect inputs into map
@@ -26,20 +38,11 @@ func mapEndpoints(o Output, h *url.URL) Endpoints {
 	var e = make(Endpoints)
 
 	for _, v := range o.Streams {
-		fmt.Println(v)
+		for _, f := range v.InputNames {
+			//fmt.Println("\t", f)
+			e[f] = constructEndpoint(h, f)
 
-		//https://github.com/go-yaml/yaml/issues/282
-		//a, _ := d.Data.([]interface{})
-		//fmt.Println(len(a))
-		//for _, x := range a {
-		//	y := x.(string)
-		//	fmt.Println(y)
-		//}
-		//for _, f := range v.InputNames {
-		//	fmt.Println("\t", f)
-		//	e[f] = constructEndpoint(h, f)
-		//
-		//}
+		}
 	}
 
 	return e
