@@ -1,13 +1,48 @@
 package cmd
 
 import (
-	"github.com/spf13/viper"
+	"fmt"
+	"net/url"
 )
 
-func unmarshalConfig(v *viper.Viper, o interface{}) error {
+//func unmarshalConfig(v *viper.Viper, o interface{}) error {
+//
+//	err := v.Unmarshal(&o)
+//	return err
+//
+//
+//}
 
-	err := v.Unmarshal(&o)
-	return err
+func constructEndpoint(h *url.URL, inputName string) string {
+
+	h.Path = inputName
+	return h.String()
+}
+
+func mapEndpoints(o Output, h *url.URL) Endpoints {
+
+	//go through feeds to collect inputs into map
+
+	var e = make(Endpoints)
+
+	for _, v := range o.Streams {
+		fmt.Println(v)
+
+		//https://github.com/go-yaml/yaml/issues/282
+		//a, _ := d.Data.([]interface{})
+		//fmt.Println(len(a))
+		//for _, x := range a {
+		//	y := x.(string)
+		//	fmt.Println(y)
+		//}
+		//for _, f := range v.InputNames {
+		//	fmt.Println("\t", f)
+		//	e[f] = constructEndpoint(h, f)
+		//
+		//}
+	}
+
+	return e
 
 }
 

@@ -1,15 +1,16 @@
 package cmd
 
-//type Stream struct {
-//	Destination string
-//	Feeds       []string
-//}
+type Commands struct {
+	Commands []string `yaml:"commands"`
+}
+
+type Endpoints map[string]string
 
 type Stream struct {
-	Name          string
-	Destination   string
-	InputNames    []string `yaml:"feeds"`
-	InputChannels []chan Packet
+	Destination string      `yaml:"destination"`
+	Feeds       interface{} `yaml:"feeds"`
+	InputNames  []string
+	//InputChannels []chan Packet
 }
 
 type Output struct {
