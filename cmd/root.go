@@ -19,20 +19,35 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/phayes/freeport"
 	"github.com/spf13/cobra"
 
 	"github.com/spf13/viper"
 )
 
+//type Stream struct {
+//	Destination string
+//	Feeds       []string
+//}
+
 type Stream struct {
-	Destination string
-	Feeds       []string
+	Name          string
+	Destination   string
+	InputNames    []string `feeds`
+	InputChannels []chan Packet
 }
+
 type Outputs struct {
 	Streams []Stream `streams`
 }
 
+type Packet struct {
+	Data []byte
+}
+
 var cfgFile string
+var port int
+var listen string
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
@@ -42,14 +57,30 @@ var rootCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 
 		var outs Outputs
+
+		var inputChannels = make(map[string]chan Packet)
+		var inputAddresses = make(map[string]string)
+
 		err := viper.Unmarshal(&outs)
 		if err != nil {
 			fmt.Println("Didnt unpack streams config")
 		} else {
 			for _, stream := range outs.Streams {
-				fmt.Printf("d:%v %v\n", stream.Destination, stream.Feeds)
+				fmt.Printf("destination:%v\n", stream.Destination)
+				for _, name := range stream.InputNames {
+					inputAddresses[name] = fmt.Sprintf("%s/%s/", listen, name)
+					fmt.Printf("%v\v", inputAddresses[name])
+
+				} //for
+
+			} //for
+
+			for _, name := range inputAddresses {
+				inputChannels[name] = make(chan Packet)
+				fmt.Printf("%s:%s\n", name, inputAddresses[name])
 			}
-		}
+
+		} //else
 
 	},
 }
@@ -75,6 +106,14 @@ func init() {
 	// Cobra also supports local flags, which will only run
 	// when this action is called directly.
 	rootCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+
+	port, err := freeport.GetFreePort()
+	if err != nil {
+		fmt.Printf("Error getting free port %v", err)
+	}
+
+	listen = fmt.Sprintf("http://127.0.0.1:%d", port)
+
 }
 
 // initConfig reads in config file and ENV variables if set.

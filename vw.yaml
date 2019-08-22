@@ -29,7 +29,7 @@ streams:
       feeds: 
         - audio
         - videoSideMedium
-  -   destination: "${host}/${uuid}/${session}front/small"
+  -   destination: "${host}/${uuid}/${session}/front/small"
       feeds: 
         - audio
         - videoFrontSmall
