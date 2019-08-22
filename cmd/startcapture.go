@@ -1,17 +1,13 @@
 package cmd
 
 import (
+	"log"
 	"net/url"
 	"os"
+	"os/exec"
+	"strings"
+	"sync"
 )
-
-//func unmarshalConfig(v *viper.Viper, o interface{}) error {
-//
-//	err := v.Unmarshal(&o)
-//	return err
-//
-//
-//}
 
 func constructEndpoint(h *url.URL, inputName string) string {
 
@@ -60,6 +56,57 @@ func expandCaptureCommands(c *Commands, e Endpoints) {
 
 	for i, raw := range c.Commands {
 		c.Commands[i] = os.Expand(raw, mapper)
+	}
+
+}
+
+func runCaptureCommands(closed <-chan struct{}, wgExternal *sync.WaitGroup, c Commands) {
+	wgExternal.Done()
+
+	var wg sync.WaitGroup
+
+	for _, command := range c.Commands {
+		wg.Add(1)
+		go runCommand(closed, &wg, command)
+	}
+
+	wg.Wait()
+}
+
+func runCommand(closed <-chan struct{}, wg *sync.WaitGroup, command string) {
+	defer wg.Done()
+
+	// Start a process:
+	tokens := strings.Split(command, " ")
+
+	cmd := exec.Command(tokens[0], tokens[1:]...)
+	if err := cmd.Start(); err != nil {
+		log.Fatal(err)
+		return
+	}
+
+	finished := make(chan struct{})
+
+	go func() {
+		_ = cmd.Wait()
+		close(finished)
+	}()
+
+	for {
+		select {
+
+		case <-closed:
+			if err := cmd.Process.Kill(); err != nil {
+				log.Fatal("failed to kill process: ", err)
+			}
+			return
+
+		case <-finished:
+			return
+
+		default:
+		}
+
 	}
 
 }
