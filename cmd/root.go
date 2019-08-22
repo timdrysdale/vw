@@ -25,29 +25,12 @@ import (
 	"github.com/spf13/viper"
 )
 
-//type Stream struct {
-//	Destination string
-//	Feeds       []string
-//}
-
-type Stream struct {
-	Name          string
-	Destination   string
-	InputNames    []string `feeds`
-	InputChannels []chan Packet
-}
-
-type Outputs struct {
-	Streams []Stream `streams`
-}
-
-type Packet struct {
-	Data []byte
-}
-
 var cfgFile string
 var port int
 var listen string
+var output Output
+var inputChannels = make(map[string]chan Packet)
+var inputAddresses = make(map[string]string)
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
@@ -55,32 +38,6 @@ var rootCmd = &cobra.Command{
 	Short: "VW video websockets transporter",
 	Long:  `VW initialises video and audio captures by syscall, receiving streams via http to avoid pipe latency issues, then forwards combinations of those streams to websocket servers`,
 	Run: func(cmd *cobra.Command, args []string) {
-
-		var outs Outputs
-
-		var inputChannels = make(map[string]chan Packet)
-		var inputAddresses = make(map[string]string)
-
-		err := viper.Unmarshal(&outs)
-		if err != nil {
-			fmt.Println("Didnt unpack streams config")
-		} else {
-			for _, stream := range outs.Streams {
-				fmt.Printf("destination:%v\n", stream.Destination)
-				for _, name := range stream.InputNames {
-					inputAddresses[name] = fmt.Sprintf("%s/%s/", listen, name)
-					fmt.Printf("%v\v", inputAddresses[name])
-
-				} //for
-
-			} //for
-
-			for _, name := range inputAddresses {
-				inputChannels[name] = make(chan Packet)
-				fmt.Printf("%s:%s\n", name, inputAddresses[name])
-			}
-
-		} //else
 
 	},
 }
