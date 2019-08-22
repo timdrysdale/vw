@@ -2,14 +2,12 @@ package cmd
 
 import (
 	"bytes"
-	"fmt"
 	"log"
 	"net/url"
 	"strings"
 	"testing"
 
 	"github.com/spf13/viper"
-	"gopkg.in/yaml.v2"
 )
 
 var twoFeedExample = []byte(`--- 
@@ -46,49 +44,21 @@ streams:
   -   destination: "${host}/${uuid}/${session}/side/small"
       feeds: 
         - audio
-        - videoFrontSmall`)
+        - videoSideSmall
+`)
 
-//var streamExample = []byte(`destination: "${host}/${uuid}/${session}/front/medium"
-//feeds:
-//  - audio
-//  - videoFrontMedium`)
-//
-
-//destination: city
-//feeds:
-//  - car
-//  - bike
-//  - banana`)
 var streamExample = []byte(`
 destination: "${host}/${uuid}/${session}/front/small"
 feeds:
   - audio
   - videoFrontSmall`)
 
-//
-var streamInputNames = []string{"audio", "videoFrontMedium"}
-
-var data = `
-data:
- - foo
- - bar
- - baz
-oof: rab` //needs a space!!
-
-type doc struct {
-	Oof  string
-	Data interface{}
-}
+var streamFeeds = []string{"audio", "videoFrontSmall"}
 
 var stream0 = Stream{Destination: "${host}/${uuid}/${session}/front/medium", InputNames: []string{"audio", "videoFrontMedium"}}
 var stream1 = Stream{Destination: "${host}/${uuid}/${session}/front/small", InputNames: []string{"audio", "videoFrontSmall"}}
 var stream2 = Stream{Destination: "${host}/${uuid}/${session}/side/medium", InputNames: []string{"audio", "videoSideMedium"}}
 var stream3 = Stream{Destination: "${host}/${uuid}/${session}/side/small", InputNames: []string{"audio", "videoSideSmall"}}
-
-//var stream0 = Stream{Name: "", Destination: "${host}/${uuid}/${session}/front/medium", InputNames: []string{"audio", "videoFrontMedium"}}
-//var stream1 = Stream{Name: "", Destination: "${host}/${uuid}/${session}/front/small", InputNames: []string{"audio", "videoFrontSmall"}}
-//var stream2 = Stream{Name: "", Destination: "${host}/${uuid}/${session}/side/medium", InputNames: []string{"audio", "videoSideMedium"}}
-//var stream3 = Stream{Name: "", Destination: "${host}/${uuid}/${session}/side/small", InputNames: []string{"audio", "videoSideSmall"}}
 
 var twoFeedOutputs = Output{[]Stream{stream0, stream1, stream2, stream3}}
 
@@ -104,22 +74,12 @@ var command1 = "ffmpeg -f v4l2 -framerate 25 -video_size 640x480 -i /dev/video0 
 
 var command2 = "ffmpeg -f alsa -ar 44100 -i hw:0 -f mpegts -codec:a mp2 -b:a 128k -muxdelay 0.001 -ac 1 -filter:a ''volume=50'' http://127.0.0.1:8080/audio"
 
-var expectedEndpoints = Endpoints{"videoFrontMedium": "http://127.0.0.1:8080/videoFrontMedium"}
+var expectedEndpoints = Endpoints{"videoFrontMedium": "http://127.0.0.1:8080/videoFrontMedium",
+	"videoFrontSmall": "http://127.0.0.1:8080/videoFrontSmall",
+	"videoSideMedium": "http://127.0.0.1:8080/videoSideMedium",
+	"videoSideSmall":  "http://127.0.0.1:8080/videoSideSmall"}
 
 func TestExpandCaptureCommands(t *testing.T) {
-
-	d := doc{}
-	err := yaml.Unmarshal([]byte(data), &d)
-	if err != nil {
-		panic(err)
-	}
-	fmt.Println("Oof:", d.Oof)
-	a, _ := d.Data.([]interface{})
-	fmt.Println(len(a))
-	for _, x := range a {
-		y := x.(string)
-		fmt.Println(y)
-	}
 
 	v := viper.New()
 	v.SetConfigType("yaml")
@@ -131,18 +91,17 @@ func TestExpandCaptureCommands(t *testing.T) {
 	var stream Stream
 	err = v.Unmarshal(&stream)
 	if err != nil {
-		log.Fatalf("read stream failed (streamExample)")
+		t.Errorf("read stream failed (streamExample) %v", err)
 	} else {
 
 		//https://github.com/go-yaml/yaml/issues/282
-		a, _ := stream.Feeds.([]interface{})
-		fmt.Println(len(a))
-		for _, x := range a {
-			y := x.(string)
-			fmt.Println("foo:", y)
-			//}
-			//		if !Equal(streamInputNames, stream.InputNames) {
-			//			t.Errorf("Stream input names do not match \n wanted: %v\n got: %v\nstruct contains %v\n", streamInputNames, stream.InputNames, stream)
+		feedSlice, _ := stream.Feeds.([]interface{})
+		for i, val := range feedSlice {
+			feed := val.(string)
+			if feed != streamFeeds[i] {
+				t.Errorf("Got wrong feed in stream\n wanted %v\ngot: %v\n", feed, streamFeeds[i])
+			}
+
 		}
 
 	}
@@ -151,7 +110,7 @@ func TestExpandCaptureCommands(t *testing.T) {
 	v.SetConfigType("yaml")
 	err = v.ReadConfig(bytes.NewBuffer(twoFeedExample))
 	if err != nil {
-		log.Fatalf("read config failed (twoFeedExample)")
+		t.Errorf("read config failed (twoFeedExample)")
 	}
 
 	var o Output
@@ -161,24 +120,25 @@ func TestExpandCaptureCommands(t *testing.T) {
 		t.Errorf("unmarshal outputs failed (twoFeedExample) %v", err)
 	}
 
+	populateInputNames(&o) //copy Feeds to InputNames, thereby converting interface to string
+
 	// ordering doesn't matter in the app, so ok to rely here in test on the order of the
 	// yaml entries being the same as validation object
-	//for k, val := range twoFeedOutputs.Streams {
-	//	if clean(val.Destination) != clean(o.Streams[k].Destination) {
-	//		t.Errorf("destinations don't match %v, %v", val.Destination, twoFeedOutputs.Streams[k].Destination)
-	//	}
-	//	if len(val.InputNames) != len(o.Streams[k].InputNames) {
-	//		t.Errorf("Mismatch in number of InputNames\n wanted: %v\n got: %v\n", val.InputNames, o.Streams[k].InputNames)
-	//	} else {
-	//		for i, f := range twoFeedOutputs.Streams[k].InputNames {
-	//			fmt.Printf("inputName found: %v\n", f)
-	//			if f != o.Streams[k].InputNames[i] {
-	//				t.Errorf("input names don't match for destination %v (%v != %v)", val.Destination, f, twoFeedOutputs.Streams[k].InputNames[i])
-	//			}
-	//		}
-	//	}
-	//
-	//}
+	for k, val := range twoFeedOutputs.Streams {
+		if clean(val.Destination) != clean(o.Streams[k].Destination) {
+			t.Errorf("destinations don't match %v, %v", val.Destination, twoFeedOutputs.Streams[k].Destination)
+		}
+		if len(val.InputNames) != len(o.Streams[k].InputNames) {
+			t.Errorf("\nMismatch in number of InputNames\n wanted: %v\n got: %v\n", val.InputNames, o.Streams[k].InputNames)
+		} else {
+			for i, f := range twoFeedOutputs.Streams[k].InputNames {
+				if clean(f) != o.Streams[k].InputNames[i] {
+					t.Errorf("input names don't match for destination %v (%v != %v)", val.Destination, f, o.Streams[k].InputNames[i])
+				}
+			}
+		}
+
+	}
 
 	var c Commands
 	err = v.Unmarshal(&c)
@@ -201,7 +161,7 @@ func TestExpandCaptureCommands(t *testing.T) {
 	endpoints := mapEndpoints(o, h)
 	for k, val := range expectedEndpoints {
 		if endpoints[k] != val {
-			t.Errorf("Expected endpoint %v for %v, got %v\n", val, k, endpoints[k])
+			t.Errorf("\nEndpoint for %v:\nexpected %v\ngot %v\n", k, val, endpoints[k])
 		}
 	}
 }
