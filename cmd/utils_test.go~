@@ -1,0 +1,16 @@
+package cmd
+
+import (
+	"log"
+	"testing"
+)
+
+var unix = "foo\r\n"
+var windows = "foo\n"
+
+func TestCleanExpandCaptureCommands(t *testing.T) {
+	if clean(unix) != clean(windows) {
+		log.Fatalf("did not clean strings %v %v\n", []byte(unix), []byte(windows))
+	}
+
+}
