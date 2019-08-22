@@ -1,401 +1,108 @@
+/*
+Copyright © 2019 NAME HERE <EMAIL ADDRESS>
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
 package cmd
 
 import (
-	"context"
 	"fmt"
-	"io"
-	"log"
-	"net/http"
-	"net/url"
 	"os"
-	"os/signal"
-	"strings"
-	"sync"
 
-	"github.com/phayes/freeport"
 	"github.com/spf13/cobra"
-	"nhooyr.io/websocket"
+
+	"github.com/spf13/viper"
 )
 
-// TODO:
-//     * how should we handle messages exceeding bufsize?
-
-var audioCommand string
-var bufsize int64
-var destination string
-var source string
-var verbose bool
-var videoCommand string
-
-func init() {
-	rootCmd.PersistentFlags().StringVarP(&audioCommand, "audioCommand", "-a", "", "Command to obtain audio stream, including the token `stream_to_vw`")
-	rootCmd.MarkFlagRequired("audioCommand")
-
-	rootCmd.PersistentFlags().Int64VarP(&bufsize, "bufsize", "b", 65535, "buffer size (max message size) [DEFAULT is 65535 bytes]")
-
-	rootCmd.PersistentFlags().StringVarP(&destination, "destination", "d", "", "ws[s]://<ip>:<port> of the destination websocket server")
-	rootCmd.MarkFlagRequired("destination")
-
-	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "print connection and message logs [DEFAULT is quiet]")
-
-	rootCmd.PersistentFlags().StringVarP(&videoCommand, "videoCommand", "-v", "", "Command to obtain video stream, including the token `stream_to_vw`")
-	rootCmd.MarkFlagRequired("videoCommand")
-
-	port, err := freeport.GetFreePort()
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	source = strings.Join([]string{"http://127.0.0.1:", port.string()}, "")
-	audioCommand = strings.Replace(audioCommand, "stream_to_vw", source, -1) //allow multiple replacements to avoid surprising users
-	videoCommand = strings.Replace(videoCommand, "stream_to_vw", source, -1) //allow multiple replacements to avoid surprising users
-
+type Stream struct {
+	Destination string
+	Feeds       []string
+}
+type Outputs struct {
+	Streams []Stream `streams`
 }
 
+var cfgFile string
+
+// rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
 	Use:   "vw",
-	Short: "VW video websockets transporter (geddit)",
-	Long:  `VW initialises video and audio capture via syscall, receives stream via http to avoid pipe latency issues, then forwards to a websocket server`,
+	Short: "VW video websockets transporter",
+	Long:  `VW initialises video and audio captures by syscall, receiving streams via http to avoid pipe latency issues, then forwards combinations of those streams to websocket servers`,
 	Run: func(cmd *cobra.Command, args []string) {
 
-		// see https://www.alexedwards.net/blog/validation-snippets-for-go#url-validation)
-		d, err := url.Parse(destination)
+		var outs Outputs
+		err := viper.Unmarshal(&outs)
 		if err != nil {
-			panic(err)
-		} else if d.Scheme == "" || d.Host == "" {
-			fmt.Println("error: destination must be an absolute URL")
-			return
-		} else if d.Scheme != "ws" && d.Scheme != "wss" {
-			fmt.Println("error: destination must begin with ws or wss")
-			return
-		}
-
-		if verbose {
-			fmt.Printf("audio: %v\nvideo: %v\n", audioCommand, videoCommand)
-			fmt.Printf("source: %v\ndestination: %v", source, destination)
-
-		}
-
-		var wg sync.WaitGroup
-		c := make(chan os.Signal, 1)
-		signal.Notify(c, os.Interrupt)
-		msg := make(chan []byte)
-		closed := make(chan struct{})
-
-		go func() {
-			for _ = range c {
-
-				close(closed)
-				wg.Wait()
-				os.Exit(1)
-
+			fmt.Println("Didnt unpack streams config")
+		} else {
+			for _, stream := range outs.Streams {
+				fmt.Printf("d:%v %v\n", stream.Destination, stream.Feeds)
 			}
-		}()
+		}
 
-		wg.Add(1)
-		go HandleSource(closed, msg, &wg, t)
-		go HandleDestination(closed, msg, &wg, r)
-		wg.Wait()
 	},
 }
 
+// Execute adds all child commands to the root command and sets flags appropriately.
+// This is called by main.main(). It only needs to happen once to the rootCmd.
 func Execute() {
-
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Println(err)
 		os.Exit(1)
 	}
 }
 
-func HandleDestination(closed <-chan struct{}, msg chan<- []byte, wg *sync.WaitGroup, t *url.URL) {
-	defer wg.Done()
+func init() {
+	cobra.OnInitialize(initConfig)
 
-	var buf = make([]byte, bufsize)
-	var n int
+	// Here you will define your flags and configuration settings.
+	// Cobra supports persistent flags, which, if defined here,
+	// will be global for your application.
 
-	if verbose {
-		fmt.Println("connecting to", t.String())
-	}
+	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.vw.yaml)")
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	c, _, err := websocket.Dial(ctx, t.String(), websocket.DialOptions{})
-
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
-
-	defer c.Close(websocket.StatusInternalError, fmt.Sprintf("Internal error with incoming websocket %s", t.String()))
-
-	for {
-		select {
-		default:
-
-			typ, r, err := c.Reader(ctx)
-
-			if err != nil {
-
-				fmt.Println("tx: io.Reader", err)
-				return
-			}
-
-			if typ != websocket.MessageBinary {
-				fmt.Println("Not binary")
-				//return
-			}
-
-			n, err = r.Read(buf)
-			if verbose {
-				fmt.Println("Got: ", n)
-			}
-			if err != nil {
-				if err != io.EOF {
-					fmt.Println("Read:", err)
-				}
-
-			}
-
-			msg <- buf[:n]
-
-		case <-closed:
-			c.Close(websocket.StatusNormalClosure, "")
-			return
-		}
-	}
+	// Cobra also supports local flags, which will only run
+	// when this action is called directly.
+	rootCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 }
 
-func HandleSource(closed <-chan struct{}, msg <-chan []byte, wg *sync.WaitGroup, t *url.URL) {
-	//	for pkt := range msg {
-	//		fmt.Println(len(pkt))
-	//	}
-	//}
+// initConfig reads in config file and ENV variables if set.
+func initConfig() {
 
-	defer wg.Done()
-
-	var n int
-
-	if servers {
-
-		fn := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-
-			// just a normal http thing here, but binary.
-			c, err := websocket.Accept(w, r, websocket.AcceptOptions{InsecureSkipVerify: true})
-			if err != nil {
-				log.Println(err)
-				return
-			}
-			defer c.Close(websocket.StatusInternalError, "the sky is falling")
-
-			ctx, cancel := context.WithCancel(r.Context())
-			ctx = c.CloseRead(ctx) //since we won't read
-			defer cancel()
-
-			for {
-				select {
-				case buf := <-msg:
-
-					w, err := c.Writer(ctx, websocket.MessageBinary)
-
-					if err != nil {
-						fmt.Println("io.Writer", err)
-						return
-					}
-					if verbose {
-						fmt.Println("buf size is", len(buf))
-					}
-
-					n, err = w.Write(buf)
-
-					if verbose {
-						fmt.Println("wrote buf of length", n)
-					}
-
-					if n != len(buf) {
-						fmt.Println("Mismatch write lengths, overflow?")
-						return
-					}
-
-					if err != nil {
-						if err != io.EOF {
-							fmt.Println("Write:", err)
-						}
-					}
-
-					err = w.Close() // do every write to flush frame
-					if verbose {
-						fmt.Println("closed writer")
-					}
-					if err != nil {
-						fmt.Println("Closing Write failed:", err)
-					}
-
-				case <-closed:
-					fmt.Println("Been told to finish up")
-					c.Close(websocket.StatusNormalClosure, "")
-					return
-				}
-			}
-		})
-		addr := strings.Join([]string{t.Hostname(), ":", t.Port()}, "")
-		log.Printf("Starting listener on %s\n", addr)
-		err := http.ListenAndServe(addr, fn)
-		log.Fatal(err)
+	if cfgFile != "" {
+		// Use config file from the flag.
+		viper.SetConfigFile(cfgFile)
+		fmt.Println("using config from command line")
 	} else {
-		if verbose {
-			fmt.Println("connecting to", t.String())
-		}
-		ctx, cancel := context.WithCancel(context.Background())
-		defer cancel()
 
-		c, _, err := websocket.Dial(ctx, t.String(), websocket.DialOptions{})
+		// Search config in home directory with name ".vw" (without extension).
+		viper.SetConfigType("yaml")
+		viper.AddConfigPath("/etc/vw/")
+		//viper.AddConfigPath("$HOME/.vw")
+		//viper.AddConfigPath("/home/tim/go/src/github.com/timdrysdale/vw") // optionally look for config in the working directory
+		viper.AddConfigPath(".")
+		viper.SetConfigName("vw")
+		//viper.SetConfigFile("/home/tim/go/src/github.com/timdrysdale/vw/vw.yaml")
+	}
 
-		if err != nil {
-			fmt.Println(err)
-			return
-		}
+	viper.AutomaticEnv() // read in environment variables that match
 
-		defer c.Close(websocket.StatusInternalError, fmt.Sprintf("Internal error with incoming websocket %s", t.String()))
+	// If a config file is found, read it in.
 
-		ctx = c.CloseRead(ctx) //since we won't read
-
-		for {
-			select {
-			case buf := <-msg:
-
-				w, err := c.Writer(ctx, websocket.MessageBinary)
-
-				if err != nil {
-					fmt.Println("io.Writer", err)
-					return
-				}
-				if verbose {
-					fmt.Println("buf size is", len(buf))
-				}
-
-				n, err = w.Write(buf)
-
-				if verbose {
-					fmt.Println("wrote buf of length", n)
-				}
-
-				if n != len(buf) {
-					fmt.Println("Mismatch write lengths, overflow?\n")
-
-				}
-
-				if err != nil {
-					if err != io.EOF {
-						fmt.Println("Write:", err)
-					}
-				}
-
-				err = w.Close() // do every write to flush frame
-				if verbose {
-					fmt.Println("closed writer")
-				}
-				if err != nil {
-					fmt.Println("Closing Write failed:", err)
-				}
-
-			case <-closed:
-				c.Close(websocket.StatusNormalClosure, "")
-				return
-			}
-		}
-
+	if err := viper.ReadInConfig(); err == nil {
+		fmt.Println("Using config file:", viper.ConfigFileUsed())
+	} else {
+		fmt.Printf("Error with config file %v\n", err)
 	}
 }
-
-//func HandleReceiverOld(msg <-chan []byte, wg *sync.WaitGroup, server bool, bufsize int64, t *url.URL) {
-//	// NOTE that nhooyr websockets must read messages sent to them else
-//	// control frames are not processed ... so bidirectional is needed
-//	defer wg.Done()
-//
-//	//var buf = make([]byte, 65535+1) //1000kbps rate at 30fps is just over 4200byte/s
-//	var n int
-//
-//	//ctx, cancel := context.WithTimeout(context.Background(), 18*time.Second)
-//	ctx, cancel := context.WithCancel(context.Background())
-//	defer cancel()
-//
-//	c, _, err := websocket.Dial(ctx, t.String(), websocket.DialOptions{})
-//	c.SetReadLimit(bufsize)
-//	if err != nil {
-//		fmt.Println(err)
-//		return
-//	}
-//
-//	defer c.Close(websocket.StatusInternalError, fmt.Sprintf("Internal error with websocket client %s", t.String()))
-//	fmt.Println("In Handle Receiver")
-//
-//	//assume we don't get any messages so we must keep extending the readDeadline
-//	//ticker := time.NewTicker(30 * time.Second)
-//	//go func() {
-//	//	for t := range ticker.C {
-//	//		//ctx.SetReadDeadline(time.Minute)
-//	//		c.setReadTimeout <- context.Background()
-//	//	}
-//	//}()
-//	// read but ignore any messages we do receive
-//	//go func() {
-//	//	typ, r, err := c.Reader(ctx)
-//	//
-//	//	if err != nil {
-//	//
-//	//		fmt.Println("io.Reader", err)
-//	//		return
-//	//	}
-//	//
-//	//	if typ != websocket.MessageBinary {
-//	//		fmt.Println("Not binary")
-//	//		//return
-//	//	}
-//	//
-//	//	n, err = r.Read(buf)
-//	//	if err != nil {
-//	//		if err != io.EOF {
-//	//			fmt.Println("Read:", err)
-//	//		}
-//	//
-//	//	} else {
-//	//		fmt.Println("Got: ", n)
-//	//	}
-//	//
-//	//}()
-//
-//	for pkt := range msg {
-//		fmt.Printf("%T %d\n", pkt, len(pkt))
-//		fmt.Println("attempting to read from channel")
-//		//func (c *Conn) Writer(ctx context.Context, typ MessageType) (io.WriteCloser, error)
-//		w, err := c.Writer(ctx, websocket.MessageBinary)
-//		fmt.Println("got writer")
-//		if err != nil {
-//
-//			fmt.Println("io.Writer", err)
-//			return
-//		}
-//		fmt.Println("pkt size is", len(pkt))
-//		//nn := int64(math.Min(float64(len(pkt)), float64(65535)))
-//		n, err = w.Write(pkt[:511])
-//
-//		fmt.Println("wrote pkt length", n)
-//
-//		if err != nil {
-//			if err != io.EOF {
-//				fmt.Println("Write:", err)
-//			}
-//		}
-//
-//		err = w.Close()
-//		fmt.Println("closed writer")
-//		if err != nil {
-//			fmt.Println("Closing Write failed:", err)
-//		}
-//
-//	}
-//
-//	c.Close(websocket.StatusNormalClosure, "")
-//	return
-//
-//}
