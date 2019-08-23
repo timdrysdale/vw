@@ -46,6 +46,10 @@ func startHttp(closed <-chan struct{}, wg *sync.WaitGroup, listen url.URL, feedm
 	} // for
 } // startHttp
 
+//mux := http.NewServeMux()
+//mux.Handler("/request", requesthandler)
+//http.ListenAndServe(":9000", nil)
+
 func startHttpServer(wg *sync.WaitGroup, port int, feedmap FeedMap) *http.Server {
 	defer wg.Done()
 	addr := fmt.Sprintf(":%d", port)

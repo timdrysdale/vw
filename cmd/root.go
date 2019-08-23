@@ -44,7 +44,7 @@ var rootCmd = &cobra.Command{
 	Short: "VW video websockets transporter",
 	Long:  `VW initialises video and audio captures by syscall, receiving streams via http to avoid pipe latency issues, then forwards combinations of those streams to websocket servers`,
 	Run: func(cmd *cobra.Command, args []string) {
-
+		fmt.Printf("In the root function\n")
 		var captureCommands Commands
 		var outputs Output
 		var wg sync.WaitGroup
@@ -73,11 +73,13 @@ var rootCmd = &cobra.Command{
 
 		populateInputNames(&outputs)
 
-		configureChannels(outputs, channelBufferLength, &channelList)
+		outurl := viper.GetString("outurl")
+		uuid := viper.GetString("uuid")
+		session := viper.GetString("session")
+
+		configureChannels(outputs, channelBufferLength, &channelList, outurl, uuid, session)
 
 		configureFeedMap(&channelList, feedMap)
-
-		configureChannels(outputs, channelBufferLength, &channelList)
 
 		configureClientMap(&channelList, clientMap)
 
@@ -92,14 +94,16 @@ var rootCmd = &cobra.Command{
 
 		expandCaptureCommands(&captureCommands, endpoints)
 
-		startHttp(closed, &wg, *h, feedMap)
+		go startHttp(closed, &wg, *h, feedMap)
 
-		startWss(closed, &wg, clientMap)
+		go startWss(closed, &wg, clientMap)
 
 		// TODO wait until the http server is up - maybe send a test response? or have it signal on a channel?
-		time.Sleep(100 * time.Millisecond)
+		time.Sleep(1000 * time.Millisecond)
 
-		runCaptureCommands(closed, &wg, captureCommands)
+		go runCaptureCommands(closed, &wg, captureCommands)
+
+		wg.Wait()
 
 	},
 }

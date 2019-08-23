@@ -19,7 +19,7 @@ commands:
 control: 
   path: control
   scheme: http
-urlout: "wss://video.practable.io:443"
+outurl: "wss://video.practable.io:443"
 log: ./vw.log
 retry_wait: 1000
 strict: false
@@ -29,19 +29,19 @@ uuid: 49270598-9da2-4209-98da-e559f0c587b4
 session: 7525cb39-554e-43e1-90ed-3a97e8d1c6bf
 verbose: false
 streams: 
-  -   destination: "${urlout}/${uuid}/${session}/front/medium"
+  -   destination: "${outurl}/${uuid}/${session}/front/medium"
       feeds: 
         - audio
         - "/videoFrontMedium/some/other/path/"
-  -   destination: "${urlout}/${uuid}/${session}/front/small"
+  -   destination: "${outurl}/${uuid}/${session}/front/small"
       feeds: 
         - audio
         - "/videoFrontSmall"
-  -   destination: "${urlout}/${uuid}/${session}/side/medium"
+  -   destination: "${outurl}/${uuid}/${session}/side/medium"
       feeds: 
         - audio
         - "videoSideMedium/"
-  -   destination: "${urlout}/${uuid}/${session}/side/small"
+  -   destination: "${outurl}/${uuid}/${session}/side/small"
       feeds: 
         - audio
         - videoSideSmall
@@ -55,17 +55,17 @@ feeds:
 
 var streamFeeds = []string{"audio", "videoFrontSmall"}
 
-var stream0 = Stream{Destination: "${urlout}/${uuid}/${session}/front/medium", InputNames: []string{"/audio", "/videoFrontMedium/some/other/path"}}
-var stream1 = Stream{Destination: "${urlout}/${uuid}/${session}/front/small", InputNames: []string{"/audio", "/videoFrontSmall"}}
-var stream2 = Stream{Destination: "${urlout}/${uuid}/${session}/side/medium", InputNames: []string{"/audio", "/videoSideMedium"}}
-var stream3 = Stream{Destination: "${urlout}/${uuid}/${session}/side/small", InputNames: []string{"/audio", "/videoSideSmall"}}
+var stream0 = Stream{Destination: "${outurl}/${uuid}/${session}/front/medium", InputNames: []string{"/audio", "/videoFrontMedium/some/other/path"}}
+var stream1 = Stream{Destination: "${outurl}/${uuid}/${session}/front/small", InputNames: []string{"/audio", "/videoFrontSmall"}}
+var stream2 = Stream{Destination: "${outurl}/${uuid}/${session}/side/medium", InputNames: []string{"/audio", "/videoSideMedium"}}
+var stream3 = Stream{Destination: "${outurl}/${uuid}/${session}/side/small", InputNames: []string{"/audio", "/videoSideSmall"}}
 
 var twoFeedOutputs = Output{[]Stream{stream0, stream1, stream2, stream3}}
 
-var expectedChannelCountForClientMap = map[string]int{"${urlout}/${uuid}/${session}/front/medium": 2,
-	"${urlout}/${uuid}/${session}/front/small": 2,
-	"${urlout}/${uuid}/${session}/side/medium": 2,
-	"${urlout}/${uuid}/${session}/side/small":  2}
+var expectedChannelCountForClientMap = map[string]int{"wss://somwhere.nice:123/x8786x/y987y/front/medium": 2,
+	"wss://somwhere.nice:123/x8786x/y987y/front/small": 2,
+	"wss://somwhere.nice:123/x8786x/y987y/side/medium": 2,
+	"wss://somwhere.nice:123/x8786x/y987y/side/small":  2}
 
 var expectedChannelCountForFeedMap = map[string]int{"/audio": 4, "/videoFrontMedium/some/other/path": 1, "/videoFrontSmall": 1, "/videoSideMedium": 1, "/videoSideSmall": 1}
 
@@ -227,7 +227,10 @@ func TestConfigureChannels(t *testing.T) {
 
 	channelList := make([]ChannelDetails, 0)
 
-	configureChannels(o, channelBufferLength, &channelList)
+	outurl := "wss://somwhere.nice:123"
+	uuid := "x8786x"
+	session := "y987y"
+	configureChannels(o, channelBufferLength, &channelList, outurl, uuid, session)
 
 	if len(channelList) != 8 {
 		t.Errorf("Wrong number of channels configured; expected 8, got %d", len(channelList))
@@ -279,8 +282,10 @@ func TestMakeFeedMap(t *testing.T) {
 	channelBufferLength := 2 //we're not doing much with them, make bigger in production
 
 	channelList := make([]ChannelDetails, 0)
-
-	configureChannels(o, channelBufferLength, &channelList)
+	outurl := "wss://somwhere.nice:123"
+	uuid := "x8786x"
+	session := "y987y"
+	configureChannels(o, channelBufferLength, &channelList, outurl, uuid, session)
 
 	feedMap := make(FeedMap)
 
@@ -306,7 +311,10 @@ func TestMakeClientMap(t *testing.T) {
 
 	channelList := make([]ChannelDetails, 0)
 
-	configureChannels(o, channelBufferLength, &channelList)
+	outurl := "wss://somwhere.nice:123"
+	uuid := "x8786x"
+	session := "y987y"
+	configureChannels(o, channelBufferLength, &channelList, outurl, uuid, session)
 
 	clientMap := make(ClientMap)
 
@@ -331,13 +339,13 @@ func TestGetUrlOut(t *testing.T) {
 		log.Fatalf("read config failed (twoFeedExample) %v", err)
 	}
 
-	if !v.IsSet("urlout") {
-		t.Errorf("Outgoing URL urlout is not set\n")
+	if !v.IsSet("outurl") {
+		t.Errorf("Outgoing URL outurl is not set\n")
 	}
-	urlout := v.GetString("urlout")
+	outurl := v.GetString("outurl")
 	expected := "wss://video.practable.io:443"
-	if urlout != expected {
-		t.Errorf("Error getting host from config. Wanted %v, got %v\n", expected, urlout)
+	if outurl != expected {
+		t.Errorf("Error getting host from config. Wanted %v, got %v\n", expected, outurl)
 	}
 
 }

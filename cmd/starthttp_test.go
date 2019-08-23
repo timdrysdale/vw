@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"log"
 	"net/http"
 	"sync"
 	"testing"
@@ -117,11 +116,11 @@ func TestChannelRouting(t *testing.T) {
 		t.Errorf("timeout on ch1c")
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second) //TODO make configurable
+	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second) //TODO make configurable
 	defer cancel()
 
 	if err := srv.Shutdown(ctx); err != nil {
-		log.Fatalf("Could not gracefully shutdown the server: %v\n", err)
+		t.Errorf("Could not gracefully shutdown the server: %v\n", err)
 	}
 
 }

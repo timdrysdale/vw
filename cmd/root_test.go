@@ -1,11 +1,14 @@
 package cmd
 
 import (
+	"bytes"
 	"crypto/rand"
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"os/exec"
 	"testing"
+	"time"
 
 	"github.com/gobwas/ws"
 	"github.com/gobwas/ws/wsutil"
@@ -15,16 +18,21 @@ import (
 var configBinaryCurl = `--- 
 commands: 
   - "curl  --request POST --data-binary @bin.dat ${binarydata}"
-urlout: "ws://127.0.0.1:%d"
+outurl: "ws://127.0.0.1:%d"
 session: 7525cb39-554e-43e1-90ed-3a97e8d1c6bf
 uuid: 49270598-9da2-4209-98da-e559f0c587b4
 streams: 
-  -   destination: "${urlout}/${uuid}/${session}/front/medium"
+  -   destination: "${outurl}/${uuid}/${session}/front/medium"
       feeds: 
         - binarydata
 `
 
 func TestRoot(t *testing.T) {
+
+	cmd := exec.Command("rm", "./bin.dat")
+	err := cmd.Run()
+	cmd = exec.Command("rm", "./rx.dat")
+	err = cmd.Run()
 
 	port, err := freeport.GetFreePort()
 	if err != nil {
@@ -33,26 +41,32 @@ func TestRoot(t *testing.T) {
 
 	writeConfig(port)
 
-	data, err := writeDataFile(1024, "./bin.dat")
+	_, err = writeDataFile(1024, "./bin.dat")
 	if err != nil {
 		fmt.Printf("Error writing data file %v", err)
 	}
-	
-	go func(){
-		//give wsReceiver a chance to start 
-		time.Sleep(10 * time.Millisecond)
+
+	go func() {
+		//give wsReceiver a chance to start
+		time.Sleep(100 * time.Millisecond)
 		Execute()
-	}
-	
-	msg := wsReceiver(port, t)
+	}()
 
-	if len(msg) != len(data) {
-		t.Errorf("messages have different lengths: sent %v, received %v", len(data), len(msg))
-	}
+	go wsReceiver(port, t)
 
-	//if !Equal(msg, data) {
-	//	t.Errorf("Messages have different contents:\nsent: %v...\ngot : %v...", data[:10], msg[:10])
-	//}
+	time.Sleep(10 * time.Millisecond)
+
+	var outbuf bytes.Buffer
+
+	cmd = exec.Command("diff", "./bin.dat", "./rx.dat")
+	cmd.Stdout = &outbuf
+	err = cmd.Run()
+	stdout := outbuf.String()
+	if stdout != "" {
+		t.Errorf("Data sent and received is different: %v", stdout)
+	} else {
+		fmt.Println("Data received same as sent")
+	}
 
 }
 
@@ -78,7 +92,7 @@ func writeDataFile(size int, name string) ([]byte, error) {
 
 }
 
-func wsReceiver(port int, t *testing.T) []byte {
+func wsReceiver(port int, t *testing.T) {
 
 	var msg []byte
 
@@ -102,5 +116,4 @@ func wsReceiver(port int, t *testing.T) []byte {
 			}
 		}
 	}))
-	return msg
 }
