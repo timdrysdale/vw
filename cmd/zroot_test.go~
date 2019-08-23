@@ -1,0 +1,119 @@
+package cmd
+
+import (
+	"bytes"
+	"crypto/rand"
+	"fmt"
+	"io/ioutil"
+	"net/http"
+	"os/exec"
+	"testing"
+	"time"
+
+	"github.com/gobwas/ws"
+	"github.com/gobwas/ws/wsutil"
+	"github.com/phayes/freeport"
+)
+
+var configBinaryCurl = `--- 
+commands: 
+  - "curl  --request POST --data-binary @bin.dat ${binarydata}"
+outurl: "ws://127.0.0.1:%d"
+session: 7525cb39-554e-43e1-90ed-3a97e8d1c6bf
+uuid: 49270598-9da2-4209-98da-e559f0c587b4
+streams: 
+  -   destination: "${outurl}/${uuid}/${session}/front/medium"
+      feeds: 
+        - binarydata
+`
+
+func TestZRoot(t *testing.T) {
+
+	cmd := exec.Command("rm", "./bin.dat")
+	err := cmd.Run()
+	cmd = exec.Command("rm", "./rx.dat")
+	err = cmd.Run()
+
+	port, err := freeport.GetFreePort()
+	if err != nil {
+		fmt.Printf("Error getting free port %v", err)
+	}
+
+	writeConfig(port)
+
+	_, err = writeDataFile(1024, "./bin.dat")
+	if err != nil {
+		fmt.Printf("Error writing data file %v", err)
+	}
+
+	go func() {
+		//give wsReceiver a chance to start
+		time.Sleep(100 * time.Millisecond)
+		Execute()
+	}()
+
+	go wsReceiver(port, t)
+
+	time.Sleep(10 * time.Millisecond)
+
+	var outbuf bytes.Buffer
+
+	cmd = exec.Command("diff", "./bin.dat", "./rx.dat")
+	cmd.Stdout = &outbuf
+	err = cmd.Run()
+	stdout := outbuf.String()
+	if stdout != "" {
+		t.Errorf("Data sent and received is different: %v", stdout)
+	} else {
+		fmt.Println("Data received same as sent")
+	}
+
+}
+
+func writeConfig(port int) error {
+
+	config := []byte(fmt.Sprintf(configBinaryCurl, port))
+
+	name := "./vw.yaml"
+
+	err := ioutil.WriteFile(name, config, 0644)
+
+	return err
+}
+
+func writeDataFile(size int, name string) ([]byte, error) {
+
+	data := make([]byte, size)
+	rand.Read(data)
+
+	err := ioutil.WriteFile(name, data, 0644)
+
+	return data, err
+
+}
+
+func wsReceiver(port int, t *testing.T) {
+
+	var msg []byte
+
+	addr := fmt.Sprintf(":%d", port)
+
+	http.ListenAndServe(addr, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		conn, _, _, err := ws.UpgradeHTTP(r, w)
+		if err != nil {
+			t.Errorf("Error starting wsReceiver for test: %v", err)
+		}
+		defer conn.Close()
+
+		msg, _, _ = wsutil.ReadClientData(conn)
+		if err != nil {
+			t.Errorf("Error starting wsReceiver for test: %v", err)
+		} else {
+			err = ioutil.WriteFile("./rx.dat", msg, 0644)
+			if err != nil {
+				t.Errorf("Error writing data to file: %v", err)
+
+			}
+		}
+	}))
+}
