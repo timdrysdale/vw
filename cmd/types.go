@@ -23,19 +23,7 @@ type Packet struct {
 
 type FeedMap map[string][]chan Packet
 
-type ClientDetails struct {
-	Destination string
-	Channels    []chan Packet
-}
-
-type ClientList []ClientDetails
-
-type Everything struct {
-	ClientList ClientList
-	FeedMap    FeedMap
-	Endpoints  Endpoints
-	Output     Output
-}
+type ClientMap map[string][]chan Packet
 
 type ChannelDetails struct {
 	Channel     chan Packet
