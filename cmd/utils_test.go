@@ -41,6 +41,9 @@ func TestSlashify(t *testing.T) {
 
 }
 
+// Utilities only needed during testing - put them here
+// to reduce build size in production
+
 // mod from https://yourbasic.org/golang/compare-slices/
 // Equal tells whether a and b contain the same elements.
 // A nil argument is equivalent to an empty slice.

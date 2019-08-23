@@ -16,33 +16,32 @@ commands:
   - "ffmpeg -f v4l2 -framerate 25 -video_size 640x480 -i /dev/video0 -s 640x480 -b:v 1024k -bf 0 -f mpegts -codec:v mpeg1video -s 640x480 -b:v 1024k -bf 0 -f mpegts -codec:v mpeg1video ${videoFrontMedium/some/other/path} -s 320x240 -b:v 512k -bf 0 -f mpegts -codec:v mpeg1video ${videoFrontSmall}"
   - "ffmpeg -f v4l2 -framerate 25 -video_size 640x480 -i ${myspecialvideo} -s 640x480 -b:v 1024k -bf 0 -f mpegts -codec:v mpeg1video -s 640x480 -b:v 1024k -bf 0 -f mpegts -codec:v mpeg1video ${videoSideMedium} -s 320x240 -b:v 512k -bf 0 -f mpegts -codec:v mpeg1video ${videoSideSmall}"
   - "ffmpeg -f alsa -ar 44100 -i hw:0 -f mpegts -codec:a mp2 -b:a 128k -muxdelay 0.001 -ac 1 -filter:a ''volume=50'' ${audio}"
-
-config: 
-  control: 
-    path: control
-    scheme: http
-  host: "wss://video.practable.io:443"
-  log: ./vw.log
-  retry_wait: 1000
-  strict: false
-  tuning: 
-    bufferSize: 1024000
-  uuid: 49270598-9da2-4209-98da-e559f0c587b4
-  verbose: false
+control: 
+  path: control
+  scheme: http
+urlout: "wss://video.practable.io:443"
+log: ./vw.log
+retry_wait: 1000
+strict: false
+tuning: 
+bufferSize: 1024000
+uuid: 49270598-9da2-4209-98da-e559f0c587b4
+session: 7525cb39-554e-43e1-90ed-3a97e8d1c6bf
+verbose: false
 streams: 
-  -   destination: "${host}/${uuid}/${session}/front/medium"
+  -   destination: "${urlout}/${uuid}/${session}/front/medium"
       feeds: 
         - audio
         - "/videoFrontMedium/some/other/path/"
-  -   destination: "${host}/${uuid}/${session}/front/small"
+  -   destination: "${urlout}/${uuid}/${session}/front/small"
       feeds: 
         - audio
         - "/videoFrontSmall"
-  -   destination: "${host}/${uuid}/${session}/side/medium"
+  -   destination: "${urlout}/${uuid}/${session}/side/medium"
       feeds: 
         - audio
         - "videoSideMedium/"
-  -   destination: "${host}/${uuid}/${session}/side/small"
+  -   destination: "${urlout}/${uuid}/${session}/side/small"
       feeds: 
         - audio
         - videoSideSmall
@@ -56,17 +55,17 @@ feeds:
 
 var streamFeeds = []string{"audio", "videoFrontSmall"}
 
-var stream0 = Stream{Destination: "${host}/${uuid}/${session}/front/medium", InputNames: []string{"/audio", "/videoFrontMedium/some/other/path"}}
-var stream1 = Stream{Destination: "${host}/${uuid}/${session}/front/small", InputNames: []string{"/audio", "/videoFrontSmall"}}
-var stream2 = Stream{Destination: "${host}/${uuid}/${session}/side/medium", InputNames: []string{"/audio", "/videoSideMedium"}}
-var stream3 = Stream{Destination: "${host}/${uuid}/${session}/side/small", InputNames: []string{"/audio", "/videoSideSmall"}}
+var stream0 = Stream{Destination: "${urlout}/${uuid}/${session}/front/medium", InputNames: []string{"/audio", "/videoFrontMedium/some/other/path"}}
+var stream1 = Stream{Destination: "${urlout}/${uuid}/${session}/front/small", InputNames: []string{"/audio", "/videoFrontSmall"}}
+var stream2 = Stream{Destination: "${urlout}/${uuid}/${session}/side/medium", InputNames: []string{"/audio", "/videoSideMedium"}}
+var stream3 = Stream{Destination: "${urlout}/${uuid}/${session}/side/small", InputNames: []string{"/audio", "/videoSideSmall"}}
 
 var twoFeedOutputs = Output{[]Stream{stream0, stream1, stream2, stream3}}
 
-var expectedChannelCountForClientMap = map[string]int{"${host}/${uuid}/${session}/front/medium": 2,
-	"${host}/${uuid}/${session}/front/small": 2,
-	"${host}/${uuid}/${session}/side/medium": 2,
-	"${host}/${uuid}/${session}/side/small":  2}
+var expectedChannelCountForClientMap = map[string]int{"${urlout}/${uuid}/${session}/front/medium": 2,
+	"${urlout}/${uuid}/${session}/front/small": 2,
+	"${urlout}/${uuid}/${session}/side/medium": 2,
+	"${urlout}/${uuid}/${session}/side/small":  2}
 
 var expectedChannelCountForFeedMap = map[string]int{"/audio": 4, "/videoFrontMedium/some/other/path": 1, "/videoFrontSmall": 1, "/videoSideMedium": 1, "/videoSideSmall": 1}
 
@@ -322,4 +321,23 @@ func TestMakeClientMap(t *testing.T) {
 			t.Errorf("Wrong number of channels associated with feed %s; expected %d got %d", feed, expectedChannelCountForClientMap[feed], len(channels))
 		}
 	}
+}
+
+func TestGetUrlOut(t *testing.T) {
+	v := viper.New()
+	v.SetConfigType("yaml")
+	err = v.ReadConfig(bytes.NewBuffer(twoFeedExample))
+	if err != nil {
+		log.Fatalf("read config failed (twoFeedExample) %v", err)
+	}
+
+	if !v.IsSet("urlout") {
+		t.Errorf("Outgoing URL urlout is not set\n")
+	}
+	urlout := v.GetString("urlout")
+	expected := "wss://video.practable.io:443"
+	if urlout != expected {
+		t.Errorf("Error getting host from config. Wanted %v, got %v\n", expected, urlout)
+	}
+
 }

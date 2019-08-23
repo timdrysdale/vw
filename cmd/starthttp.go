@@ -30,7 +30,7 @@ func startHttp(closed <-chan struct{}, wg *sync.WaitGroup, listen url.URL, feedm
 		case <-closed:
 
 			if err := srv.Shutdown(context.TODO()); err != nil {
-				panic(err) // failure/timeout shutting down the server gracefully
+				log.Panicf("failure/timeout shutting down the http server gracefully: %v", err)
 			}
 
 			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second) //TODO make configurable
