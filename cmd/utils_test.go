@@ -19,6 +19,28 @@ func TestClean(t *testing.T) {
 	}
 }
 
+func TestSlashify(t *testing.T) {
+
+	if "/foo" != slashify("foo") {
+		t.Errorf("Slashify not prefixing slash ")
+	}
+	if "//foo" == slashify("/foo") {
+		t.Errorf("Slashify prefixing additional slash")
+	}
+	if "/foo" != slashify("/foo/") {
+		t.Errorf("Slashify not removing trailing slash")
+	}
+	if "/foo" != slashify("foo/") {
+		t.Errorf("Slashify not both removing trailing slash AND prefixing slash")
+	}
+
+	b := "foo/bar/rab/oof/"
+	if "/foo/bar/rab/oof" != slashify(b) {
+		t.Errorf("Slashify not coping with internal slashes %s -> %s", b, slashify(b))
+	}
+
+}
+
 // mod from https://yourbasic.org/golang/compare-slices/
 // Equal tells whether a and b contain the same elements.
 // A nil argument is equivalent to an empty slice.

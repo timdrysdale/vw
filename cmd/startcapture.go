@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"fmt"
 	"log"
 	"net/url"
 	"os"
@@ -21,7 +22,7 @@ func populateInputNames(o *Output) {
 	for i, s := range o.Streams {
 		feedSlice, _ := s.Feeds.([]interface{})
 		for _, feed := range feedSlice {
-			o.Streams[i].InputNames = append(o.Streams[i].InputNames, feed.(string))
+			o.Streams[i].InputNames = append(o.Streams[i].InputNames, slashify(feed.(string)))
 		}
 
 	}
@@ -46,10 +47,12 @@ func expandCaptureCommands(c *Commands, e Endpoints) {
 
 	// we rely on e being in scope for the mapper when it runs
 	mapper := func(placeholderName string) string {
-		if val, ok := e[placeholderName]; ok {
+
+		if val, ok := e[slashify(placeholderName)]; ok {
 			return val
 		} else {
-			return placeholderName //don't change what we don't know about
+			// we don't modify unknown env variables
+			return fmt.Sprintf("${%s}", placeholderName)
 		}
 
 	}
