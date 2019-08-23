@@ -14,8 +14,8 @@ import (
 
 var twoFeedExample = []byte(`--- 
 commands: 
-  - "ffmpeg -f v4l2 -framerate 25 -video_size 640x480 -i /dev/video0 -s 640x480 -b:v 1024k -bf 0 -f mpegts -codec:v mpeg1video -s 640x480 -b:v 1024k -bf 0 -f mpegts -codec:v mpeg1video ${videoFrontMedium} -s 320x240 -b:v 512k -bf 0 -f mpegts -codec:v mpeg1video ${videoFrontSmall}"
-  - "ffmpeg -f v4l2 -framerate 25 -video_size 640x480 -i /dev/video0 -s 640x480 -b:v 1024k -bf 0 -f mpegts -codec:v mpeg1video -s 640x480 -b:v 1024k -bf 0 -f mpegts -codec:v mpeg1video ${videoSideMedium} -s 320x240 -b:v 512k -bf 0 -f mpegts -codec:v mpeg1video ${videoSideSmall}"
+  - "ffmpeg -f v4l2 -framerate 25 -video_size 640x480 -i /dev/video0 -s 640x480 -b:v 1024k -bf 0 -f mpegts -codec:v mpeg1video -s 640x480 -b:v 1024k -bf 0 -f mpegts -codec:v mpeg1video ${videoFrontMedium/some/other/path} -s 320x240 -b:v 512k -bf 0 -f mpegts -codec:v mpeg1video ${videoFrontSmall}"
+  - "ffmpeg -f v4l2 -framerate 25 -video_size 640x480 -i ${myspecialvideo} -s 640x480 -b:v 1024k -bf 0 -f mpegts -codec:v mpeg1video -s 640x480 -b:v 1024k -bf 0 -f mpegts -codec:v mpeg1video ${videoSideMedium} -s 320x240 -b:v 512k -bf 0 -f mpegts -codec:v mpeg1video ${videoSideSmall}"
   - "ffmpeg -f alsa -ar 44100 -i hw:0 -f mpegts -codec:a mp2 -b:a 128k -muxdelay 0.001 -ac 1 -filter:a ''volume=50'' ${audio}"
 
 config: 
@@ -34,15 +34,15 @@ streams:
   -   destination: "${host}/${uuid}/${session}/front/medium"
       feeds: 
         - audio
-        - videoFrontMedium
+        - "/videoFrontMedium/some/other/path/"
   -   destination: "${host}/${uuid}/${session}/front/small"
       feeds: 
         - audio
-        - videoFrontSmall
+        - "/videoFrontSmall"
   -   destination: "${host}/${uuid}/${session}/side/medium"
       feeds: 
         - audio
-        - videoSideMedium
+        - "videoSideMedium/"
   -   destination: "${host}/${uuid}/${session}/side/small"
       feeds: 
         - audio
@@ -57,10 +57,10 @@ feeds:
 
 var streamFeeds = []string{"audio", "videoFrontSmall"}
 
-var stream0 = Stream{Destination: "${host}/${uuid}/${session}/front/medium", InputNames: []string{"audio", "videoFrontMedium"}}
-var stream1 = Stream{Destination: "${host}/${uuid}/${session}/front/small", InputNames: []string{"audio", "videoFrontSmall"}}
-var stream2 = Stream{Destination: "${host}/${uuid}/${session}/side/medium", InputNames: []string{"audio", "videoSideMedium"}}
-var stream3 = Stream{Destination: "${host}/${uuid}/${session}/side/small", InputNames: []string{"audio", "videoSideSmall"}}
+var stream0 = Stream{Destination: "${host}/${uuid}/${session}/front/medium", InputNames: []string{"/audio", "/videoFrontMedium/some/other/path"}}
+var stream1 = Stream{Destination: "${host}/${uuid}/${session}/front/small", InputNames: []string{"/audio", "/videoFrontSmall"}}
+var stream2 = Stream{Destination: "${host}/${uuid}/${session}/side/medium", InputNames: []string{"/audio", "/videoSideMedium"}}
+var stream3 = Stream{Destination: "${host}/${uuid}/${session}/side/small", InputNames: []string{"/audio", "/videoSideSmall"}}
 
 var twoFeedOutputs = Output{[]Stream{stream0, stream1, stream2, stream3}}
 
@@ -70,18 +70,20 @@ var h, err = url.Parse("http://127.0.0.1:8080/")
 var inputName1 = "some/amazing/long/path"
 var endpoint1 = strings.Join([]string{hosturl, inputName1}, "")
 
-var command0 = "ffmpeg -f v4l2 -framerate 25 -video_size 640x480 -i /dev/video0 -s 640x480 -b:v 1024k -bf 0 -f mpegts -codec:v mpeg1video -s 640x480 -b:v 1024k -bf 0 -f mpegts -codec:v mpeg1video http://127.0.0.1:8080/videoFrontMedium -s 320x240 -b:v 512k -bf 0 -f mpegts -codec:v mpeg1video http://127.0.0.1:8080/videoFrontSmall"
+var command0 = "ffmpeg -f v4l2 -framerate 25 -video_size 640x480 -i /dev/video0 -s 640x480 -b:v 1024k -bf 0 -f mpegts -codec:v mpeg1video -s 640x480 -b:v 1024k -bf 0 -f mpegts -codec:v mpeg1video http://127.0.0.1:8080/videoFrontMedium/some/other/path -s 320x240 -b:v 512k -bf 0 -f mpegts -codec:v mpeg1video http://127.0.0.1:8080/videoFrontSmall"
 
-var command1 = "ffmpeg -f v4l2 -framerate 25 -video_size 640x480 -i /dev/video0 -s 640x480 -b:v 1024k -bf 0 -f mpegts -codec:v mpeg1video -s 640x480 -b:v 1024k -bf 0 -f mpegts -codec:v mpeg1video http://127.0.0.1:8080/videoSideMedium -s 320x240 -b:v 512k -bf 0 -f mpegts -codec:v mpeg1video http://127.0.0.1:8080/videoSideSmall"
+//note env var ${myspecialvideo} that should not be altered by vw
+var command1 = "ffmpeg -f v4l2 -framerate 25 -video_size 640x480 -i ${myspecialvideo} -s 640x480 -b:v 1024k -bf 0 -f mpegts -codec:v mpeg1video -s 640x480 -b:v 1024k -bf 0 -f mpegts -codec:v mpeg1video http://127.0.0.1:8080/videoSideMedium -s 320x240 -b:v 512k -bf 0 -f mpegts -codec:v mpeg1video http://127.0.0.1:8080/videoSideSmall"
 
 var command2 = "ffmpeg -f alsa -ar 44100 -i hw:0 -f mpegts -codec:a mp2 -b:a 128k -muxdelay 0.001 -ac 1 -filter:a ''volume=50'' http://127.0.0.1:8080/audio"
 
 var expandedCommands = []string{command0, command1, command2}
 
-var expectedEndpoints = Endpoints{"videoFrontMedium": "http://127.0.0.1:8080/videoFrontMedium",
-	"videoFrontSmall": "http://127.0.0.1:8080/videoFrontSmall",
-	"videoSideMedium": "http://127.0.0.1:8080/videoSideMedium",
-	"videoSideSmall":  "http://127.0.0.1:8080/videoSideSmall"}
+var expectedEndpoints = Endpoints{"/videoFrontMedium/some/other/path": "http://127.0.0.1:8080/videoFrontMedium/some/other/path",
+	"/videoFrontSmall": "http://127.0.0.1:8080/videoFrontSmall",
+	"/videoSideMedium": "http://127.0.0.1:8080/videoSideMedium",
+	"/videoSideSmall":  "http://127.0.0.1:8080/videoSideSmall",
+	"/audio":           "http://127.0.0.1:8080/audio"}
 
 var cmd0 = "sleep 0.1"
 var cmd1 = "sleep 0.2"
