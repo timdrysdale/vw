@@ -43,7 +43,7 @@ func TestZRoot(t *testing.T) {
 
 	writeConfig(port)
 
-	_, err = writeDataFile(1024, "./bin.dat")
+	_, err = writeDataFile(1024000, "./bin.dat")
 	if err != nil {
 		fmt.Printf("Error writing data file %v", err)
 	}
@@ -67,7 +67,10 @@ func TestZRoot(t *testing.T) {
 	if stdout != "" {
 		t.Errorf("Data sent and received is different: %v", stdout)
 	}
-
+	cmd = exec.Command("rm", "./bin.dat")
+	err = cmd.Run()
+	cmd = exec.Command("rm", "./rx.dat")
+	err = cmd.Run()
 }
 
 func writeConfig(port int) error {
