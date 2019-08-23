@@ -62,3 +62,35 @@ func expandCaptureCommands(c *Commands, e Endpoints) {
 	}
 
 }
+
+func configureChannels(o Output, channelBufferLength int, channelList *[]ChannelDetails) {
+
+	for _, stream := range o.Streams {
+		for _, feed := range stream.InputNames {
+			newChannel := make(chan Packet, channelBufferLength)
+			newChannelDetails := ChannelDetails{Channel: newChannel, Feed: feed, Destination: stream.Destination}
+			*channelList = append(*channelList, newChannelDetails)
+		}
+	}
+}
+
+//type ChannelDetails struct {
+//	Channel     chan Packet
+//	Feed        string
+//	Destination string
+//}
+//type FeedMap map[string][]chan Packet
+
+func configureFeedMap(channelList *[]ChannelDetails, feedMap FeedMap) {
+
+	for _, channel := range *channelList {
+		if _, ok := feedMap[channel.Feed]; ok {
+			feedMap[channel.Feed] = append(feedMap[channel.Feed], channel.Channel)
+		} else {
+			feedMap[channel.Feed] = []chan Packet{channel.Channel}
+		}
+	}
+
+}
+
+//func Configureclientlist(channelList *[]ChannelDetails, clientList *ClientList) {

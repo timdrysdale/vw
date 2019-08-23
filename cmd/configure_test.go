@@ -6,6 +6,7 @@ import (
 	"net/url"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/spf13/viper"
 )
@@ -62,6 +63,8 @@ var stream3 = Stream{Destination: "${host}/${uuid}/${session}/side/small", Input
 
 var twoFeedOutputs = Output{[]Stream{stream0, stream1, stream2, stream3}}
 
+var expectedChannelCount = map[string]int{"/audio": 4, "/videoFrontMedium/some/other/path": 1, "/videoFrontSmall": 1, "/videoSideMedium": 1, "/videoSideSmall": 1}
+
 var hosturl = "http://127.0.0.1:8080/"
 var h, err = url.Parse("http://127.0.0.1:8080/")
 
@@ -83,7 +86,7 @@ var expectedEndpoints = Endpoints{"/videoFrontMedium/some/other/path": "http://1
 	"/videoSideSmall":  "http://127.0.0.1:8080/videoSideSmall",
 	"/audio":           "http://127.0.0.1:8080/audio"}
 
-func TestUnMarshallStream(t *testing.T) {
+func TestUnmarshallStream(t *testing.T) {
 	v := viper.New()
 	v.SetConfigType("yaml")
 	err = v.ReadConfig(bytes.NewBuffer(streamExample))
@@ -104,13 +107,11 @@ func TestUnMarshallStream(t *testing.T) {
 			if feed != streamFeeds[i] {
 				t.Errorf("Got wrong feed in stream\n wanted %v\ngot: %v\n", feed, streamFeeds[i])
 			}
-
 		}
-
 	}
 }
 
-func TestConfigure(t *testing.T) {
+func TestConfigureForCommands(t *testing.T) {
 
 	v := viper.New()
 	v.SetConfigType("yaml")
@@ -213,10 +214,81 @@ func TestExpandCaptureCommands(t *testing.T) {
 	}
 }
 
-func TestConfigureOutputs(t *testing.T) {
+func TestConfigureChannels(t *testing.T) {
 
-	//use ones we made earlier ...
-	//o := twoFeedOutputs
-	//endpoints := expectedEndpoints
+	//known-good output configuration from earlier
+	o := twoFeedOutputs
 
+	channelBufferLength := 2 //we're not doing much with them, make bigger in production
+
+	channelList := make([]ChannelDetails, 0)
+
+	configureChannels(o, channelBufferLength, &channelList)
+
+	if len(channelList) != 8 {
+		t.Errorf("Wrong number of channels configured; expected 8, got %d", len(channelList))
+	}
+
+	// check a channel is useable, and not duplicated
+	channelList[3].Channel <- Packet{Data: []byte("h")}
+	channelList[3].Channel <- Packet{Data: []byte("h")}
+
+	for i := 0; i <= 1; i++ {
+		select {
+
+		case <-channelList[0].Channel:
+			t.Errorf("Wrong channel got the message")
+
+		case <-channelList[1].Channel:
+			t.Errorf("Wrong channel got the message")
+
+		case <-channelList[2].Channel:
+			t.Errorf("Wrong channel got the message")
+
+		case <-channelList[3].Channel:
+			//got the right channel, phew.
+
+		case <-channelList[4].Channel:
+			t.Errorf("Wrong channel got the message")
+
+		case <-channelList[5].Channel:
+			t.Errorf("Wrong channel got the message")
+
+		case <-channelList[6].Channel:
+			t.Errorf("Wrong channel got the message")
+
+		case <-channelList[7].Channel:
+			t.Errorf("Wrong channel got the message")
+
+		case <-time.After(time.Millisecond):
+			t.Errorf("Channels timed out")
+		}
+	}
+
+}
+
+func TestMakeFeedMap(t *testing.T) {
+
+	//known-good output configuration from earlier
+	o := twoFeedOutputs
+
+	channelBufferLength := 2 //we're not doing much with them, make bigger in production
+
+	channelList := make([]ChannelDetails, 0)
+
+	configureChannels(o, channelBufferLength, &channelList)
+
+	feedMap := make(FeedMap)
+
+	configureFeedMap(&channelList, feedMap)
+
+	if len(feedMap) != 5 {
+		t.Errorf("Wrong number of entries in feedMap; expected 8, got %d", len(feedMap))
+	}
+
+	for feed, channels := range feedMap {
+		if len(channels) != expectedChannelCount[feed] {
+			t.Errorf("Wrong number of channels associated with feed %s; expected %d got %d", feed, expectedChannelCount[feed], len(channels))
+		}
+	}
 }
