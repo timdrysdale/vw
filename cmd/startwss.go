@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"sync"
 	"time"
@@ -28,7 +29,8 @@ func wssClient(closed <-chan struct{}, wg *sync.WaitGroup, url string, messageCh
 	timeout := minTimeout
 
 	for {
-		log.Printf("%s dialing %s", name, url)
+		fmt.Printf("%s dialing %s", name, url) //TODO revert to log
+
 		conn, _, _, err := ws.DefaultDialer.Dial(context.Background(), url)
 
 		if err != nil {
