@@ -1,0 +1,26 @@
+package cmd
+
+func testRoot(t *testing.T){
+
+	
+//curl  --request POST --data-binary "@README" http://localhost:6666
+
+}
+    
+
+func writeRandomFile(size int){
+
+	data := make([]byte, size)
+    rand.Read(data)
+	name := fmt.Sprintf("./%d.dat"
+    
+    err := ioutil.WriteFile(name, data, 0644)
+    if err != nil {
+		t.Errorf("Error writing file %v\n)",err)
+	}
+
+	return name 
+
+}
+
+

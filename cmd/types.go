@@ -30,3 +30,16 @@ type ChannelDetails struct {
 	Feed        string
 	Destination string
 }
+
+//config:
+//  control:
+//    path: control
+//    scheme: http
+//  host: "wss://video.practable.io:443"
+//  log: ./vw.log
+//  retry_wait: 1000
+//  strict: false
+//  tuning:
+//    bufferSize: 1024000
+//  uuid: 49270598-9da2-4209-98da-e559f0c587b4
+//  verbose: false

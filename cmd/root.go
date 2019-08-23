@@ -17,7 +17,11 @@ package cmd
 
 import (
 	"fmt"
+	"log"
 	"os"
+	"os/signal"
+	"sync"
+	"time"
 
 	"github.com/phayes/freeport"
 	"github.com/spf13/cobra"
@@ -40,6 +44,62 @@ var rootCmd = &cobra.Command{
 	Short: "VW video websockets transporter",
 	Long:  `VW initialises video and audio captures by syscall, receiving streams via http to avoid pipe latency issues, then forwards combinations of those streams to websocket servers`,
 	Run: func(cmd *cobra.Command, args []string) {
+
+		var captureCommands Commands
+		var outputs Output
+		var wg sync.WaitGroup
+
+		channelBufferLength := 10 //TODO make configurable
+		channelList := make([]ChannelDetails, 0)
+		channelSignal := make(chan os.Signal, 1)
+		clientMap := make(ClientMap)
+		closed := make(chan struct{})
+		feedMap := make(FeedMap)
+
+		signal.Notify(channelSignal, os.Interrupt)
+
+		go func() {
+			for _ = range channelSignal {
+				close(closed)
+				wg.Wait()
+				os.Exit(1)
+			}
+		}()
+
+		err := viper.Unmarshal(&outputs)
+		if err != nil {
+			log.Fatalf("Viper unmarshal outputs failed: %v", err)
+		}
+
+		populateInputNames(&outputs)
+
+		configureChannels(outputs, channelBufferLength, &channelList)
+
+		configureFeedMap(&channelList, feedMap)
+
+		configureChannels(outputs, channelBufferLength, &channelList)
+
+		configureClientMap(&channelList, clientMap)
+
+		h := getHost()
+
+		endpoints := mapEndpoints(outputs, h)
+
+		err = viper.Unmarshal(&captureCommands)
+		if err != nil {
+			log.Fatalf("Viper unmarshal commands failed: %v", err)
+		}
+
+		expandCaptureCommands(&captureCommands, endpoints)
+
+		startHttp(closed, &wg, *h, feedMap)
+
+		startWss(closed, &wg, clientMap)
+
+		// TODO wait until the http server is up - maybe send a test response? or have it signal on a channel?
+		time.Sleep(100 * time.Millisecond)
+
+		runCaptureCommands(closed, &wg, captureCommands)
 
 	},
 }
