@@ -83,8 +83,7 @@ var expectedEndpoints = Endpoints{"/videoFrontMedium/some/other/path": "http://1
 	"/videoSideSmall":  "http://127.0.0.1:8080/videoSideSmall",
 	"/audio":           "http://127.0.0.1:8080/audio"}
 
-func TestExpandCaptureCommands(t *testing.T) {
-
+func TestUnMarshallStream(t *testing.T) {
 	v := viper.New()
 	v.SetConfigType("yaml")
 	err = v.ReadConfig(bytes.NewBuffer(streamExample))
@@ -108,6 +107,32 @@ func TestExpandCaptureCommands(t *testing.T) {
 
 		}
 
+	}
+}
+
+func TestConfigure(t *testing.T) {
+
+	v := viper.New()
+	v.SetConfigType("yaml")
+	err = v.ReadConfig(bytes.NewBuffer(streamExample))
+	if err != nil {
+		log.Fatalf("read config failed (streamExample) %v", err)
+	}
+
+	var stream Stream
+	err = v.Unmarshal(&stream)
+	if err != nil {
+		t.Errorf("read stream failed (streamExample) %v", err)
+	} else {
+
+		//https://github.com/go-yaml/yaml/issues/282
+		feedSlice, _ := stream.Feeds.([]interface{})
+		for i, val := range feedSlice {
+			feed := val.(string)
+			if feed != streamFeeds[i] {
+				t.Errorf("Got wrong feed in stream\n wanted %v\ngot: %v\n", feed, streamFeeds[i])
+			}
+		}
 	}
 
 	v = viper.New()
@@ -141,14 +166,6 @@ func TestExpandCaptureCommands(t *testing.T) {
 				}
 			}
 		}
-
-	}
-
-	var c Commands
-	err = v.Unmarshal(&c)
-
-	if err != nil {
-		t.Errorf("unmarshal commands failed (twoFeedExample) %v", err)
 	}
 
 	if hosturl != h.String() {
@@ -168,13 +185,38 @@ func TestExpandCaptureCommands(t *testing.T) {
 			t.Errorf("\nEndpoint for %v:\nexpected %v\ngot %v\n", k, val, endpoints[k])
 		}
 	}
+}
+
+func TestExpandCaptureCommands(t *testing.T) {
+
+	v := viper.New()
+	v.SetConfigType("yaml")
+	err = v.ReadConfig(bytes.NewBuffer(twoFeedExample))
+	if err != nil {
+		t.Errorf("read config failed (twoFeedExample)")
+	}
+
+	var c Commands
+	err = v.Unmarshal(&c)
+
+	if err != nil {
+		t.Errorf("unmarshal commands failed (twoFeedExample) %v", err)
+	}
 
 	// expand the commands in-place
-	expandCaptureCommands(&c, endpoints)
+	expandCaptureCommands(&c, expectedEndpoints)
 
 	for i, expanded := range expandedCommands {
 		if clean(expanded) != c.Commands[i] {
 			t.Errorf("\nCommand incorrectly expanded\nexp: %v\ngot: %v\n", expanded, c.Commands[i])
 		}
 	}
+}
+
+func TestConfigureOutputs(t *testing.T) {
+
+	//use ones we made earlier ...
+	//o := twoFeedOutputs
+	//endpoints := expectedEndpoints
+
 }
