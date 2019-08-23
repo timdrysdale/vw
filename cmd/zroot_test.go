@@ -1,5 +1,7 @@
 package cmd
 
+//This is named z... so it runs last - else it conflicts with streamtest
+
 import (
 	"bytes"
 	"crypto/rand"
@@ -27,7 +29,7 @@ streams:
         - binarydata
 `
 
-func TestRoot(t *testing.T) {
+func TestZRoot(t *testing.T) {
 
 	cmd := exec.Command("rm", "./bin.dat")
 	err := cmd.Run()
@@ -64,8 +66,6 @@ func TestRoot(t *testing.T) {
 	stdout := outbuf.String()
 	if stdout != "" {
 		t.Errorf("Data sent and received is different: %v", stdout)
-	} else {
-		fmt.Println("Data received same as sent")
 	}
 
 }
