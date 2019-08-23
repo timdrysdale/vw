@@ -63,7 +63,12 @@ var stream3 = Stream{Destination: "${host}/${uuid}/${session}/side/small", Input
 
 var twoFeedOutputs = Output{[]Stream{stream0, stream1, stream2, stream3}}
 
-var expectedChannelCount = map[string]int{"/audio": 4, "/videoFrontMedium/some/other/path": 1, "/videoFrontSmall": 1, "/videoSideMedium": 1, "/videoSideSmall": 1}
+var expectedChannelCountForClientMap = map[string]int{"${host}/${uuid}/${session}/front/medium": 2,
+	"${host}/${uuid}/${session}/front/small": 2,
+	"${host}/${uuid}/${session}/side/medium": 2,
+	"${host}/${uuid}/${session}/side/small":  2}
+
+var expectedChannelCountForFeedMap = map[string]int{"/audio": 4, "/videoFrontMedium/some/other/path": 1, "/videoFrontSmall": 1, "/videoSideMedium": 1, "/videoSideSmall": 1}
 
 var hosturl = "http://127.0.0.1:8080/"
 var h, err = url.Parse("http://127.0.0.1:8080/")
@@ -282,13 +287,39 @@ func TestMakeFeedMap(t *testing.T) {
 
 	configureFeedMap(&channelList, feedMap)
 
-	if len(feedMap) != 5 {
-		t.Errorf("Wrong number of entries in feedMap; expected 8, got %d", len(feedMap))
+	if len(feedMap) != len(expectedChannelCountForFeedMap) {
+		t.Errorf("Wrong number of entries in feedMap; expected %d, got %d", len(expectedChannelCountForFeedMap), len(feedMap))
 	}
 
 	for feed, channels := range feedMap {
-		if len(channels) != expectedChannelCount[feed] {
-			t.Errorf("Wrong number of channels associated with feed %s; expected %d got %d", feed, expectedChannelCount[feed], len(channels))
+		if len(channels) != expectedChannelCountForFeedMap[feed] {
+			t.Errorf("Wrong number of channels associated with feed %s; expected %d got %d", feed, expectedChannelCountForFeedMap[feed], len(channels))
+		}
+	}
+}
+
+func TestMakeClientMap(t *testing.T) {
+
+	//known-good output configuration from earlier
+	o := twoFeedOutputs
+
+	channelBufferLength := 2 //we're not doing much with them, make bigger in production
+
+	channelList := make([]ChannelDetails, 0)
+
+	configureChannels(o, channelBufferLength, &channelList)
+
+	clientMap := make(ClientMap)
+
+	configureClientMap(&channelList, clientMap)
+
+	if len(clientMap) != len(expectedChannelCountForClientMap) {
+		t.Errorf("Wrong number of entries in feedMap; expected %d, got %d", len(expectedChannelCountForClientMap), len(clientMap))
+	}
+
+	for feed, channels := range clientMap {
+		if len(channels) != expectedChannelCountForClientMap[feed] {
+			t.Errorf("Wrong number of channels associated with feed %s; expected %d got %d", feed, expectedChannelCountForClientMap[feed], len(channels))
 		}
 	}
 }

@@ -74,13 +74,6 @@ func configureChannels(o Output, channelBufferLength int, channelList *[]Channel
 	}
 }
 
-//type ChannelDetails struct {
-//	Channel     chan Packet
-//	Feed        string
-//	Destination string
-//}
-//type FeedMap map[string][]chan Packet
-
 func configureFeedMap(channelList *[]ChannelDetails, feedMap FeedMap) {
 
 	for _, channel := range *channelList {
@@ -90,7 +83,15 @@ func configureFeedMap(channelList *[]ChannelDetails, feedMap FeedMap) {
 			feedMap[channel.Feed] = []chan Packet{channel.Channel}
 		}
 	}
-
 }
 
-//func Configureclientlist(channelList *[]ChannelDetails, clientList *ClientList) {
+func configureClientMap(channelList *[]ChannelDetails, clientMap ClientMap) {
+
+	for _, channel := range *channelList {
+		if _, ok := clientMap[channel.Destination]; ok {
+			clientMap[channel.Destination] = append(clientMap[channel.Destination], channel.Channel)
+		} else {
+			clientMap[channel.Destination] = []chan Packet{channel.Channel}
+		}
+	}
+}
