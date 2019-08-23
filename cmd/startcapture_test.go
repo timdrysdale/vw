@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"bytes"
-	"fmt"
 	"log"
 	"net/url"
 	"strings"
@@ -190,7 +189,9 @@ func TestExpandCaptureCommands(t *testing.T) {
 			t.Errorf("\nCommand incorrectly expanded\nexp: %v\ngot: %v\n", expanded, c.Commands[i])
 		}
 	}
+}
 
+func TestRunCommands(t *testing.T) {
 	// try sleeping in external processes
 	closed := make(chan struct{})
 	var wg sync.WaitGroup
@@ -208,7 +209,6 @@ func TestExpandCaptureCommands(t *testing.T) {
 	//try killing processes via closed
 	wg.Add(1)
 	go func() {
-		fmt.Println("in closer")
 		select {
 		case <-time.After(500 * time.Millisecond):
 			close(closed)
@@ -224,4 +224,5 @@ func TestExpandCaptureCommands(t *testing.T) {
 	if elapsed > 1000*time.Millisecond {
 		t.Errorf("killing sleep commands took too long %v", elapsed)
 	}
+
 }

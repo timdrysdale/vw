@@ -20,3 +20,5 @@ type Output struct {
 type Packet struct {
 	Data []byte
 }
+
+type FeedMap map[string][]chan Packet

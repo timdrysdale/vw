@@ -1,0 +1,55 @@
+package cmd
+
+
+func TestRouting(t *testing.T) {
+
+	//make a feedmap
+	ch1a := make(chan Packet)
+	ch1b : = make(chan Packet)
+	ch2 := make(chan Packet)
+
+	var feedmap FeedMap
+	feedmap["ch1"] = []chan Packet{[ch1a, ch1b]}
+	feedmap["ch2"] = []chan Packet{[ch2]}
+
+	//get a free port
+	port, err := freeport.GetFreePort()
+	if err != nil {
+		fmt.Printf("Error getting free port %v", err)
+	}
+
+	addr := fmt.Sprintf(":%d",port)
+
+	var wg WaitGroup
+	wg.Add(1)
+
+	srv := startHttpServer(wg, addr, feedmap)
+
+			if err := srv.Shutdown(ctx); err != nil {
+				log.Fatalf("Could not gracefully shutdown the server: %v\n", err)
+			}
+	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonStr))
+	
+	
+
+func main() {
+    url := "http://restapi3.apiary.io/notes"
+    fmt.Println("URL:>", url)
+
+    var jsonStr = []byte(`{"title":"Buy cheese and bread for breakfast."}`)
+    req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonStr))
+    req.Header.Set("X-Custom-Header", "myvalue")
+    req.Header.Set("Content-Type", "application/json")
+
+    client := &http.Client{}
+    resp, err := client.Do(req)
+    if err != nil {
+        panic(err)
+    }
+    defer resp.Body.Close()
+
+    fmt.Println("response Status:", resp.Status)
+    fmt.Println("response Headers:", resp.Header)
+    body, _ := ioutil.ReadAll(resp.Body)
+    fmt.Println("response Body:", string(body))
+}
