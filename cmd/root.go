@@ -31,6 +31,8 @@ var listen string
 var output Output
 var inputChannels = make(map[string]chan Packet)
 var inputAddresses = make(map[string]string)
+var channelList []ChannelDetails
+var channelBufferLength int
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{

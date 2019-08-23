@@ -36,3 +36,9 @@ type Everything struct {
 	Endpoints  Endpoints
 	Output     Output
 }
+
+type ChannelDetails struct {
+	Channel     chan Packet
+	Feed        string
+	Destination string
+}
