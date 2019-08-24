@@ -83,6 +83,7 @@ var rootCmd = &cobra.Command{
 		configureFeedMap(&channelList, feedMap)
 
 		configureClientMap(&channelList, clientMap)
+		fmt.Printf("\nClient Map:\n%v\n", clientMap)
 
 		h := getHost()
 

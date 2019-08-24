@@ -25,12 +25,11 @@ func startWss(closed <-chan struct{}, wg *sync.WaitGroup, clientMap ClientMap) {
 func wssClient(closed <-chan struct{}, wg *sync.WaitGroup, url string, messageChannels []chan Packet, name string) {
 
 	defer wg.Done()
-	const minTimeout = 500 * time.Millisecond //TODO make configurable
-	timeout := minTimeout
+	const timeout = 1000 * time.Millisecond //TODO make configurable
 
 	for {
 		fmt.Printf("%s dialing %s\n", name, url) //TODO revert to log
-		ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
+		ctx, cancel := context.WithTimeout(context.Background(), timeout)
 		defer cancel()
 		conn, _, _, err := ws.DefaultDialer.Dial(ctx, url)
 
@@ -52,12 +51,9 @@ func wssClient(closed <-chan struct{}, wg *sync.WaitGroup, url string, messageCh
 				fmt.Printf("wssClient has closed\n")
 				return
 			}
-			time.Sleep(timeout)
-			//timeout = 2 * timeout //polynomial backoff
 
 		} else {
 
-			timeout = minTimeout //we've connected so reset timeout
 			log.Printf("%s connected to %s\n", name, url)
 
 			for {
@@ -72,13 +68,14 @@ func wssClient(closed <-chan struct{}, wg *sync.WaitGroup, url string, messageCh
 						log.Printf("%s closed\n", name)
 					}
 					fmt.Printf("wssClient has closed\n")
-
+					return
 				default:
-
+					fmt.Printf("%s ready to start sending messages\n", name)
 					for _, channel := range messageChannels {
 						select {
 						case packet := <-channel:
 							err = wsutil.WriteClientMessage(conn, ws.OpBinary, packet.Data)
+							fmt.Printf("% sent %d bytes\n", name, len(packet.Data))
 							if err != nil {
 								log.Printf("%s send error: %v", name, err)
 							}
@@ -93,6 +90,8 @@ func wssClient(closed <-chan struct{}, wg *sync.WaitGroup, url string, messageCh
 							fmt.Printf("wssClient has closed\n")
 
 						default:
+							time.Sleep(500 * time.Millisecond)
+							fmt.Printf("%s no messages to send\n", name)
 						}
 					}
 				}
