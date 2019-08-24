@@ -76,15 +76,18 @@ func startHttpServer(wg *sync.WaitGroup, port int, feedmap FeedMap) *http.Server
 }
 
 func muxingHandler(w http.ResponseWriter, r *http.Request, feedmap FeedMap) {
+	fmt.Printf("\n-------------------------------------------------------------------------------------\nhttp://handler called\n")
 	buf, err := ioutil.ReadAll(r.Body)
 	if err != nil {
 		log.Fatal("request", err)
+		fmt.Printf("http://error with data %v", err)
 	}
 	packet := Packet{Data: buf}
-
+	fmt.Printf("http://got data to send\n")
 	if channelSlice, ok := feedmap[r.URL.Path]; ok {
 		for _, channel := range channelSlice {
 			channel <- packet
+			fmt.Printf("http://sent that data :-)")
 		}
 	} else {
 		fmt.Printf("didn't find %s in feedmap", r.URL.Path)
