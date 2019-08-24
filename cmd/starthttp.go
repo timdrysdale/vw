@@ -28,7 +28,7 @@ func startHttp(closed <-chan struct{}, wg *sync.WaitGroup, listen url.URL, feedm
 	for {
 		select {
 		case <-closed:
-
+			fmt.Printf("Starting to close HTTP SERVER %v\n", wg)
 			if err := srv.Shutdown(context.TODO()); err != nil {
 				log.Panicf("failure/timeout shutting down the http server gracefully: %v", err)
 			}
@@ -40,10 +40,12 @@ func startHttp(closed <-chan struct{}, wg *sync.WaitGroup, listen url.URL, feedm
 			if err := srv.Shutdown(ctx); err != nil {
 				log.Fatalf("Could not gracefully shutdown the server: %v\n", err)
 			}
+			fmt.Printf("Exiting START HTTP SERVER %v\n", wg)
 			return
 		default:
 		} // select
 	} // for
+
 } // startHttp
 
 //mux := http.NewServeMux()
@@ -66,6 +68,7 @@ func startHttpServer(wg *sync.WaitGroup, port int, feedmap FeedMap) *http.Server
 			//https://stackoverflow.com/questions/39320025/how-to-stop-http-listenandserve
 			log.Fatalf("ListenAndServe(): %s", err)
 		}
+		fmt.Printf("Exiting HTTPServer %v\n", wg)
 	}()
 
 	// returning reference so caller can call Shutdown()

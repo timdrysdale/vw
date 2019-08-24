@@ -29,29 +29,49 @@ func wssClient(closed <-chan struct{}, wg *sync.WaitGroup, url string, messageCh
 	timeout := minTimeout
 
 	for {
-		fmt.Printf("%s dialing %s", name, url) //TODO revert to log
+		fmt.Printf("%s dialing %s\n", name, url) //TODO revert to log
+		ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
+		defer cancel()
+		conn, _, _, err := ws.DefaultDialer.Dial(ctx, url)
 
-		conn, _, _, err := ws.DefaultDialer.Dial(context.Background(), url)
+		fmt.Printf("%s dialed %s getting %v\n", name, url, err)
 
 		if err != nil {
-			log.Printf("%s can not connect to %s: %v", name, url, err)
+
+			log.Printf("%s can not connect to %s: %v\n", name, url, err)
+			select {
+			case <-time.After(timeout):
+			case <-closed:
+				fmt.Printf("wssClient detected closed\n")
+				err = conn.Close()
+				if err != nil {
+					log.Printf("%s can not close: %v", name, err)
+				} else {
+					log.Printf("%s closed\n", name)
+				}
+				fmt.Printf("wssClient has closed\n")
+				return
+			}
 			time.Sleep(timeout)
-			timeout = 2 * timeout //polynomial backoff
+			//timeout = 2 * timeout //polynomial backoff
+
 		} else {
 
 			timeout = minTimeout //we've connected so reset timeout
-			log.Printf("%s connected to %s", name, url)
+			log.Printf("%s connected to %s\n", name, url)
 
 			for {
 				select {
 
 				case <-closed:
+					fmt.Printf("wssClient detected closed\n")
 					err = conn.Close()
 					if err != nil {
 						log.Printf("%s can not close: %v", name, err)
 					} else {
 						log.Printf("%s closed\n", name)
 					}
+					fmt.Printf("wssClient has closed\n")
 
 				default:
 
@@ -62,6 +82,16 @@ func wssClient(closed <-chan struct{}, wg *sync.WaitGroup, url string, messageCh
 							if err != nil {
 								log.Printf("%s send error: %v", name, err)
 							}
+						case <-closed:
+							fmt.Printf("wssClient detected closed\n")
+							err = conn.Close()
+							if err != nil {
+								log.Printf("%s can not close: %v", name, err)
+							} else {
+								log.Printf("%s closed\n", name)
+							}
+							fmt.Printf("wssClient has closed\n")
+
 						default:
 						}
 					}

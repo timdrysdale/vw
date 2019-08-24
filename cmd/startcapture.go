@@ -1,7 +1,9 @@
 package cmd
 
 import (
+	"fmt"
 	"log"
+	"os"
 	"os/exec"
 	"strings"
 	"sync"
@@ -27,6 +29,9 @@ func runCommand(closed <-chan struct{}, wg *sync.WaitGroup, command string) {
 	tokens := strings.Split(command, " ")
 
 	cmd := exec.Command(tokens[0], tokens[1:]...)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+
 	if err := cmd.Start(); err != nil {
 		log.Fatal(err)
 		return
@@ -49,6 +54,7 @@ func runCommand(closed <-chan struct{}, wg *sync.WaitGroup, command string) {
 			return
 
 		case <-finished:
+			fmt.Printf("Exited runCommand %v\n", wg)
 			return
 
 		default:
