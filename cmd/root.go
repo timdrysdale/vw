@@ -48,6 +48,7 @@ var rootCmd = &cobra.Command{
 		var captureCommands Commands
 		var outputs Output
 		var wg sync.WaitGroup
+		wg.Add(3)
 
 		channelBufferLength := 10 //TODO make configurable
 		channelList := make([]ChannelDetails, 0)
@@ -104,6 +105,7 @@ var rootCmd = &cobra.Command{
 		go runCaptureCommands(closed, &wg, captureCommands)
 
 		wg.Wait()
+		time.Sleep(time.Second)
 
 	},
 }
