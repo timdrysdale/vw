@@ -64,8 +64,8 @@ func TestChannelRouting(t *testing.T) {
 
 	var wg sync.WaitGroup
 	wg.Add(1)
-
-	srv := startHttpServer(&wg, port, feedmap)
+	closed := make(chan struct{})
+	srv := startHttpServer(closed, &wg, port, feedmap)
 	time.Sleep(time.Second)
 
 	req1, err := http.NewRequest("POST", url1, bytes.NewBuffer(msg1))

@@ -24,7 +24,7 @@ func startHttp(closed <-chan struct{}, wg *sync.WaitGroup, listen url.URL, feedm
 
 	wg.Add(1)
 	fmt.Printf("\n Listening on :%d\n", port)
-	srv := startHttpServer(wg, port, feedmap)
+	srv := startHttpServer(closed, wg, port, feedmap)
 
 	for {
 		select {
@@ -53,12 +53,12 @@ func startHttp(closed <-chan struct{}, wg *sync.WaitGroup, listen url.URL, feedm
 //mux.Handler("/request", requesthandler)
 //http.ListenAndServe(":9000", nil)
 
-func startHttpServer(wg *sync.WaitGroup, port int, feedmap FeedMap) *http.Server {
+func startHttpServer(closed <-chan struct{}, wg *sync.WaitGroup, port int, feedmap FeedMap) *http.Server {
 	defer wg.Done()
 	addr := fmt.Sprintf(":%d", port)
 	srv := &http.Server{Addr: addr}
 
-	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) { muxingHandler(w, r, feedmap) })
+	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) { muxingHandler(closed, w, r, feedmap) })
 
 	wg.Add(1)
 	go func() {
@@ -76,61 +76,91 @@ func startHttpServer(wg *sync.WaitGroup, port int, feedmap FeedMap) *http.Server
 	return srv
 }
 
-func muxingHandler(w http.ResponseWriter, r *http.Request, feedmap FeedMap) {
-	fmt.Printf("\n-------------------------------------------------------------------------------------\nhttp://handler called\n")
+func muxingHandler(closed <-chan struct{}, w http.ResponseWriter, r *http.Request, feedmap FeedMap) {
+
 	if channelSlice, ok := feedmap[r.URL.Path]; !ok {
-		fmt.Printf(`\n*****************************************************************************\n
-Not going to send this stream anywhere so goodbye\n
-*********************************************\n`)
+		fmt.Printf(`\n
+---------------------------------
+Unknown stream, check config for:%s\n
+--------------------------------\n`, r.URL.Path)
 		return
 	} else {
+		//receive MPEGTS in 188 byte chunks
+		//ffmpeg uses one tcp packet per frame
 
-		var b bytes.Buffer // A Buffer needs no initialization.
-		const chunkSize = 1024000
+		maxFrameBytes := 1024000 //TODO make configurable
+		chunkSize := 188
 		chunk := make([]byte, chunkSize)
-		//b.Write([]byte("Hello "))
-		//fmt.Fprintf(&b, "world!")
-		//b.WriteTo(os.Stdout)
-		i := 0
-		for {
-			n, err := io.ReadFull(r.Body, chunk)
-			if err != nil {
-				return //assume capture has stopped
-			}
-			//fmt.Printf("Chunk %d", i)
-			i = i + 1
-			b.Write(chunk[:n])
-			if n < chunkSize {
-				fmt.Println("\nunderead\n")
-			}
-			m := b.Len()
-			fragment := make([]byte, m)
-			b.Read(fragment)
-			packet := Packet{Data: fragment}
-			fmt.Printf("Received %d\n", m)
-			for _, channel := range channelSlice {
-				channel <- packet
-			}
-			//}
-			b.Reset()
+		frameBufferArray := make([]byte, maxFrameBytes) //owned by buffer, don't re-use
+		frameBuffer := bytes.NewBuffer(frameBufferArray)
+		frame := make([]byte, maxFrameBytes) // use for reading from frameBuffer
+		flushPeriod := 5 * time.Millisecond  //TODO make configurable
+		statsPeriod := 1 * time.Second       //TODO make configurable
+		tickerFlush := time.NewTicker(flushPeriod)
+		tickerStats := time.NewTicker(statsPeriod)
+		chunkCount := 0
+		frameBuffer.Reset() //else we send whole buffer on first flush
+		//mute := true
 
+		for {
+			select {
+			case <-time.After(1 * time.Second):
+				//frameBuffer.Reset() //flush first second of video with any non-188 byte aligned header
+				//mute = false
+			case <-tickerFlush.C:
+				//flush buffer to internal send channel
+				n, err := frameBuffer.Read(frame)
+				//fmt.Printf("\n%v\n", frame[:n])
+				if err == nil && n > 0 {
+					packet := Packet{Data: frame[:n]} //slice length is high-low
+					chunkCount = chunkCount + (n / chunkSize)
+					for _, channel := range channelSlice {
+						channel <- packet
+					} //for
+					//reset buffer
+
+					//lasti := 0
+					//for i, val := range packet.Data {
+					//	if val == 0x47 {
+					//		fmt.Printf("http: %d spaced at %v\n", val, i-lasti)
+					//		lasti = i
+					//	}
+					//}
+
+					//for i, val := range frame[:n] {
+					//	if val == 0x47 {
+					//	fmt.Printf("%d %v\n", i, val)
+					//	}
+					//}
+
+					frameBuffer.Reset()
+				} else {
+					//fmt.Printf("\nFrame buffer read error %v\n", err)
+				}
+
+			case <-tickerStats.C:
+				// print stats
+				fmt.Printf("\n Chunks total: %d\n", chunkCount)
+			case <-closed:
+				fmt.Printf("\nMuxHandler got closed\n")
+				return
+			default:
+				// get a chunk from the response body
+				_, err := io.ReadFull(r.Body, chunk)
+				if err == nil {
+					//	if n == 188 {
+					_, _ = frameBuffer.Write(chunk)
+					//fmt.Printf("\n%v\n", chunk)
+				}
+				//		if err != nil {
+				//			fmt.Printf("\nFailed to write chunk to frameBuffer;' only wrote %d because %v\n", n, err)
+				//		}
+
+				//	} else {
+				//		fmt.Printf("\nBad chunk, wanted %d, got %d\n", chunkSize, n)
+				//	} //if/else
+				//} //if
+			} //select
 		}
 	}
 }
-
-//	buf, err := ioutil.ReadAll(r.Body)
-//	if err != nil {
-//		log.Fatal("request", err)
-//		fmt.Printf("http://error with data %v", err)
-//	}
-//	packet := Packet{Data: buf}
-//	fmt.Printf("http://got data to send\n")
-//	if channelSlice, ok := feedmap[r.URL.Path]; ok {
-//		for _, channel := range channelSlice {
-//			channel <- packet
-//			fmt.Printf("http://sent that data :-)")
-//		}
-//	} else {
-//		fmt.Printf("didn't find %s in feedmap", r.URL.Path)
-//	}
-//}

@@ -74,8 +74,21 @@ func wssClient(closed <-chan struct{}, wg *sync.WaitGroup, url string, messageCh
 					for _, channel := range messageChannels {
 						select {
 						case packet := <-channel:
+							lasti := 0
+							for i, val := range packet.Data {
+								if val == 0x47 {
+									lasti = i
+									break
+								}
+							}
+							for i := lasti; i < len(packet.Data); i = i + 188 {
+								if packet.Data[i] != 0x47 {
+									fmt.Printf("\nSync not found at %d, neighbouring chars are %v\n", i, packet.Data[i-5:i+5])
+								}
+							}
+
 							err = wsutil.WriteClientMessage(conn, ws.OpBinary, packet.Data)
-							fmt.Printf("\n% sent %d bytes\n", name, len(packet.Data))
+							fmt.Printf("\n%s sent %d bytes\n", name, len(packet.Data))
 							if err != nil {
 								log.Printf("%s send error: %v", name, err)
 							}
@@ -90,7 +103,7 @@ func wssClient(closed <-chan struct{}, wg *sync.WaitGroup, url string, messageCh
 							fmt.Printf("wssClient has closed\n")
 
 						default:
-							time.Sleep(500 * time.Millisecond)
+							//time.Sleep(500 * time.Millisecond)
 							//fmt.Printf("%s no messages to send\n", name)
 						}
 					}
