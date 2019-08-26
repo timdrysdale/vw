@@ -1,9 +1,10 @@
 package cmd
 
 import (
+	"bytes"
 	"context"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"log"
 	"net/http"
 	"net/url"
@@ -77,19 +78,59 @@ func startHttpServer(wg *sync.WaitGroup, port int, feedmap FeedMap) *http.Server
 
 func muxingHandler(w http.ResponseWriter, r *http.Request, feedmap FeedMap) {
 	fmt.Printf("\n-------------------------------------------------------------------------------------\nhttp://handler called\n")
-	buf, err := ioutil.ReadAll(r.Body)
-	if err != nil {
-		log.Fatal("request", err)
-		fmt.Printf("http://error with data %v", err)
-	}
-	packet := Packet{Data: buf}
-	fmt.Printf("http://got data to send\n")
-	if channelSlice, ok := feedmap[r.URL.Path]; ok {
-		for _, channel := range channelSlice {
-			channel <- packet
-			fmt.Printf("http://sent that data :-)")
-		}
+	if channelSlice, ok := feedmap[r.URL.Path]; !ok {
+		fmt.Printf(`\n*****************************************************************************\n
+Not going to send this stream anywhere so goodbye\n
+*********************************************\n`)
+		return
 	} else {
-		fmt.Printf("didn't find %s in feedmap", r.URL.Path)
+
+		var b bytes.Buffer // A Buffer needs no initialization.
+		const chunkSize = 1024000
+		chunk := make([]byte, chunkSize)
+		//b.Write([]byte("Hello "))
+		//fmt.Fprintf(&b, "world!")
+		//b.WriteTo(os.Stdout)
+		i := 0
+		for {
+			n, err := io.ReadFull(r.Body, chunk)
+			if err != nil {
+				return //assume capture has stopped
+			}
+			//fmt.Printf("Chunk %d", i)
+			i = i + 1
+			b.Write(chunk[:n])
+			if n < chunkSize {
+				fmt.Println("\nunderead\n")
+			}
+			m := b.Len()
+			fragment := make([]byte, m)
+			b.Read(fragment)
+			packet := Packet{Data: fragment}
+			fmt.Printf("Received %d\n", m)
+			for _, channel := range channelSlice {
+				channel <- packet
+			}
+			//}
+			b.Reset()
+
+		}
 	}
 }
+
+//	buf, err := ioutil.ReadAll(r.Body)
+//	if err != nil {
+//		log.Fatal("request", err)
+//		fmt.Printf("http://error with data %v", err)
+//	}
+//	packet := Packet{Data: buf}
+//	fmt.Printf("http://got data to send\n")
+//	if channelSlice, ok := feedmap[r.URL.Path]; ok {
+//		for _, channel := range channelSlice {
+//			channel <- packet
+//			fmt.Printf("http://sent that data :-)")
+//		}
+//	} else {
+//		fmt.Printf("didn't find %s in feedmap", r.URL.Path)
+//	}
+//}

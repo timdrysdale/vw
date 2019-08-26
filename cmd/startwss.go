@@ -70,12 +70,12 @@ func wssClient(closed <-chan struct{}, wg *sync.WaitGroup, url string, messageCh
 					fmt.Printf("wssClient has closed\n")
 					return
 				default:
-					fmt.Printf("%s ready to start sending messages\n", name)
+					//fmt.Printf("%s ready to start sending messages\n", name)
 					for _, channel := range messageChannels {
 						select {
 						case packet := <-channel:
 							err = wsutil.WriteClientMessage(conn, ws.OpBinary, packet.Data)
-							fmt.Printf("% sent %d bytes\n", name, len(packet.Data))
+							fmt.Printf("\n% sent %d bytes\n", name, len(packet.Data))
 							if err != nil {
 								log.Printf("%s send error: %v", name, err)
 							}
@@ -91,7 +91,7 @@ func wssClient(closed <-chan struct{}, wg *sync.WaitGroup, url string, messageCh
 
 						default:
 							time.Sleep(500 * time.Millisecond)
-							fmt.Printf("%s no messages to send\n", name)
+							//fmt.Printf("%s no messages to send\n", name)
 						}
 					}
 				}
