@@ -89,15 +89,15 @@ Unknown stream, check config for:%s\n
 		//ffmpeg uses one tcp packet per frame
 
 		maxFrameBytes := 1024000 //TODO make configurable
-		chunkSize := 188
+		chunkSize := 4096        //188
 		chunk := make([]byte, chunkSize)
 		frameBufferArray := make([]byte, maxFrameBytes) //owned by buffer, don't re-use
 		frameBuffer := bytes.NewBuffer(frameBufferArray)
 		frame := make([]byte, maxFrameBytes) // use for reading from frameBuffer
 		flushPeriod := 5 * time.Millisecond  //TODO make configurable
-		statsPeriod := 1 * time.Second       //TODO make configurable
+		//statsPeriod := 1 * time.Second       //TODO make configurable
 		tickerFlush := time.NewTicker(flushPeriod)
-		tickerStats := time.NewTicker(statsPeriod)
+		//tickerStats := time.NewTicker(statsPeriod)
 		chunkCount := 0
 		frameBuffer.Reset() //else we send whole buffer on first flush
 		//mute := true
@@ -138,9 +138,9 @@ Unknown stream, check config for:%s\n
 					//fmt.Printf("\nFrame buffer read error %v\n", err)
 				}
 
-			case <-tickerStats.C:
-				// print stats
-				fmt.Printf("\n Chunks total: %d\n", chunkCount)
+			//case <-tickerStats.C:
+			// print stats
+			//fmt.Printf("\n Chunks total: %d\n", chunkCount)
 			case <-closed:
 				fmt.Printf("\nMuxHandler got closed\n")
 				return
