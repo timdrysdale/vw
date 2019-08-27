@@ -1,15 +1,15 @@
 package config
 
 type CoreConfiguration struct {
-	Mux        MuxConfiguration `yaml:"mux"`
-	Logfile    string           `yaml:"logfile"`
-	Debug      bool             `yaml:"debug"`
-	Verbose    bool             `yaml:"verbose"`
-	CPUProfile string           `yaml:"cpuprofile"`
-	MemProfile string           `yaml:"memprofile"`
+	Mux        MuxConfiguration `mapstructure:"mux"`
+	Logfile    string           `mapstructure:"logfile"`
+	Debug      bool             `mapstructure:"debug"`
+	Verbose    bool             `mapstructure:"verbose"`
+	CPUProfile string           `mapstructure:"cpuprofile"`
+	MemProfile string           `mapstructure:"memprofile"`
 }
 
 type MuxConfiguration struct {
-	WorkerCount int `yaml:"workerCount"`
-	BufferSize  int `yaml:"bufferSize"`
+	WorkerCount int `mapstructure:"workerCount"`
+	BufferSize  int `mapstructure:"bufferSize"`
 }

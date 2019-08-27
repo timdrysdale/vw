@@ -34,7 +34,7 @@ import (
 var cfgFile string
 var port int
 var listen string
-var output config.Streams //TODO change name to stream?
+var output config.Streams
 var inputChannels = make(map[string]chan config.Packet)
 var inputAddresses = make(map[string]string)
 var channelList []config.ChannelDetails
@@ -50,7 +50,7 @@ var rootCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		fmt.Printf("In the root function\n")
 		var captureCommands config.Commands
-		var streams config.Streams
+		var streams []config.StreamDetails
 		var wg sync.WaitGroup
 		wg.Add(3)
 

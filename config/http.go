@@ -1,5 +1,5 @@
 package config
 
 type HTTPConfiguration struct {
-	ShutdownWaitMilliseconds int `yaml:"ShutdownWaitMilliseconds"`
+	ShutdownWaitMilliseconds int `mapstructure:"ShutdownWaitMilliseconds"`
 }

@@ -22,5 +22,5 @@ package config
 //         - audio
 //         - videoFrontMedium
 type ExtraConfiguration struct {
-	Variables map[string]string `yaml:"variables"`
+	Variables map[string]string `mapstructure:"variables"`
 }

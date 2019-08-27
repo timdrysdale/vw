@@ -20,25 +20,25 @@ func constructEndpoint(h *url.URL, inputName string) string {
 	return h.String()
 }
 
-func populateInputNames(s *config.Streams) {
+func populateInputNames(s *[]config.StreamDetails) {
 
 	//for each stream, copy each item in Feeds as string into InputNames
-	for i, stream := range s.Stream {
+	for i, stream := range *s {
 		feedSlice, _ := stream.From.([]interface{})
 		for _, feed := range feedSlice {
-			s.Stream[i].InputNames = append(s.Stream[i].InputNames, slashify(feed.(string)))
+			(*s)[i].InputNames = append((*s)[i].InputNames, slashify(feed.(string)))
 		}
 
 	}
 
 }
 
-func mapEndpoints(s config.Streams, h *url.URL) config.Endpoints {
+func mapEndpoints(s []config.StreamDetails, h *url.URL) config.Endpoints {
 	//go through feeds to collect inputs into map
 
 	var e = make(config.Endpoints)
 
-	for _, v := range s.Stream {
+	for _, v := range s {
 		for _, f := range v.InputNames {
 			e[f] = constructEndpoint(h, f)
 		}
@@ -85,9 +85,9 @@ func expandDestination(destination string, outurl string, uuid string, session s
 	return destination
 }
 
-func configureChannels(s config.Streams, channelBufferLength int, channelList *[]config.ChannelDetails, outurl string, uuid string, session string) {
+func configureChannels(s []config.StreamDetails, channelBufferLength int, channelList *[]config.ChannelDetails, outurl string, uuid string, session string) {
 
-	for _, stream := range s.Stream {
+	for _, stream := range s {
 		for _, feed := range stream.InputNames {
 			newChannel := make(chan config.Packet, channelBufferLength)
 			destination := expandDestination(stream.To, outurl, uuid, session)

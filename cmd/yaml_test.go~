@@ -1,0 +1,9 @@
+package cmd
+
+import "fmt"
+
+func TestYamlv3(testing *t.Testing) {
+
+	fmt.Println("foo")
+
+}
