@@ -63,8 +63,8 @@ var rootCmd = &cobra.Command{
 		signal.Notify(channelSignal, os.Interrupt)
 
 		go func() {
-			time.Sleep(5 * time.Second)
 			if memprofile != "" {
+				time.Sleep(10 * time.Second)
 				f, err := os.Create(memprofile)
 				if err != nil {
 					log.Fatal("Could not create memory profile:", err)
@@ -74,9 +74,9 @@ var rootCmd = &cobra.Command{
 					log.Fatal("could not write memory profile: ", err)
 				}
 				defer pprof.StopCPUProfile()
-
+				close(closed)
 			}
-			close(closed)
+
 		}()
 
 		go func() {
