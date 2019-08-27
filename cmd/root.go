@@ -129,9 +129,9 @@ var rootCmd = &cobra.Command{
 
 		expandCaptureCommands(&captureCommands, endpoints)
 
-		go startHttp(closed, &wg, *h, feedMap)
+		go startHTTP(closed, &wg, *h, feedMap)
 
-		go startWss(closed, &wg, clientMap)
+		go startWSS(closed, &wg, clientMap)
 
 		// TODO wait until the http server is up - maybe send a test response? or have it signal on a channel?
 		time.Sleep(1000 * time.Millisecond)

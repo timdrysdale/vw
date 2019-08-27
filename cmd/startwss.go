@@ -12,7 +12,7 @@ import (
 	"github.com/google/uuid"
 )
 
-func startWss(closed <-chan struct{}, wg *sync.WaitGroup, clientMap ClientMap) {
+func startWSS(closed <-chan struct{}, wg *sync.WaitGroup, clientMap ClientMap) {
 	defer wg.Done()
 	for url, channels := range clientMap {
 		wg.Add(1)

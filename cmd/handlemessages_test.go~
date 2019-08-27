@@ -1,0 +1,57 @@
+package cmd
+
+import (
+	"sync"
+	"testing"
+	"time"
+)
+
+func TestHandler(t *testing.T) {
+
+	//This test fails if you don't give the handler a chance to action the commands, hence the time.Sleep
+	var wg sync.WaitGroup
+	closed := make(chan struct{})
+	clientActionsChan := make(chan clientAction)
+
+	var topics topicDirectory
+	topics.directory = make(map[string][]clientDetails)
+
+	go HandleClients(closed, &wg, &topics, clientActionsChan)
+
+	client1 := clientDetails{"client1", "topic1", make(chan message, 2)}
+	client2 := clientDetails{"client2", "topic2", make(chan message, 2)}
+	client3 := clientDetails{"client3", "topic2", make(chan message, 2)}
+	client4 := clientDetails{"client4", "topic2", make(chan message, 2)}
+
+	clientActionsChan <- clientAction{clientAdd, client1}
+	clientActionsChan <- clientAction{clientAdd, client2}
+	clientActionsChan <- clientAction{clientAdd, client3}
+	clientActionsChan <- clientAction{clientAdd, client4}
+
+	time.Sleep(1 * time.Millisecond)
+
+	clientList := []clientDetails{client1, client2, client3, client4}
+	clientShouldExist := []bool{true, true, true, true}
+
+	for i := range clientList {
+		if clientExists(&topics, clientList[i]) != clientShouldExist[i] {
+			t.Errorf("handler/addClientToTopic: client %v has WRONG existence status, should be %v\n", i, clientShouldExist[i])
+		}
+	}
+
+	clientActionsChan <- clientAction{clientDelete, client1}
+	clientActionsChan <- clientAction{clientDelete, client2}
+	clientActionsChan <- clientAction{clientDelete, client4}
+
+	time.Sleep(1 * time.Millisecond)
+
+	clientShouldExist = []bool{false, false, true, false}
+
+	for i := range clientList {
+		if clientExists(&topics, clientList[i]) != clientShouldExist[i] {
+			t.Errorf("handler/deleteClientFromTopic(): client %v has WRONG existence status, should be %v\n", i, clientShouldExist[i])
+			t.Errorf("%v", topics)
+		}
+	}
+
+}

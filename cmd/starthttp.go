@@ -8,12 +8,13 @@ import (
 	"log"
 	"net/http"
 	"net/url"
+	"os"
 	"strconv"
 	"sync"
 	"time"
 )
 
-func startHttp(closed <-chan struct{}, wg *sync.WaitGroup, listen url.URL, feedmap FeedMap) {
+func startHTTP(closed <-chan struct{}, wg *sync.WaitGroup, listen url.URL, feedmap FeedMap) {
 	defer wg.Done()
 
 	port, err := strconv.Atoi(listen.Port())
@@ -24,7 +25,7 @@ func startHttp(closed <-chan struct{}, wg *sync.WaitGroup, listen url.URL, feedm
 
 	wg.Add(1)
 	fmt.Printf("\n Listening on :%d\n", port)
-	srv := startHttpServer(closed, wg, port, feedmap)
+	srv := startHTTPServer(closed, wg, port, feedmap)
 
 	for {
 		select {
@@ -41,19 +42,16 @@ func startHttp(closed <-chan struct{}, wg *sync.WaitGroup, listen url.URL, feedm
 			if err := srv.Shutdown(ctx); err != nil {
 				log.Fatalf("Could not gracefully shutdown the server: %v\n", err)
 			}
-			fmt.Printf("Exiting START HTTP SERVER %v\n", wg)
+			if os.Getenv("DEBUG") == "true" {
+				fmt.Printf("\nExiting startHTTP %v\n", wg)
+			}
 			return
 		default:
-		} // select
-	} // for
+		}
+	}
+}
 
-} // startHttp
-
-//mux := http.NewServeMux()
-//mux.Handler("/request", requesthandler)
-//http.ListenAndServe(":9000", nil)
-
-func startHttpServer(closed <-chan struct{}, wg *sync.WaitGroup, port int, feedmap FeedMap) *http.Server {
+func startHTTPServer(closed <-chan struct{}, wg *sync.WaitGroup, port int, feedmap FeedMap) *http.Server {
 	defer wg.Done()
 	addr := fmt.Sprintf(":%d", port)
 	srv := &http.Server{Addr: addr}
@@ -152,3 +150,75 @@ Unknown stream, check config for:%s\n
 		}
 	}
 }
+
+/*
+func HandleConnections(closed <-chan struct{}, wg *sync.WaitGroup, clientActionsChan chan clientAction, messagesFromMe chan message, host *url.URL)
+
+	fn := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+
+		var HTTPUpgrader ws.HTTPUpgrader
+
+		// chrome needs this to connect
+		HTTPUpgrader.Protocol = func(str string) bool { return true }
+
+		conn, _, _, err := HTTPUpgrader.Upgrade(r, w)
+
+		if err != nil {
+			log.Fatalf("WS upgrade failed because %v\n", err)
+			return
+		}
+
+		//subscribe this new client
+		messagesForMe := make(chan message, 2)
+		var name = uuid.New().String()
+		var topic = r.URL.Path
+
+		client := clientDetails{name: name, topic: topic, messagesChan: messagesForMe}
+
+		clientActionsChan <- clientAction{action: clientAdd, client: client}
+
+		defer func() {
+			clientActionsChan <- clientAction{action: clientDelete, client: client}
+			fmt.Printf("Disconnected %v, deleting from topics\n", client)
+		}()
+
+		var localWG sync.WaitGroup
+
+		localWG.Add(2)
+		// read from client
+		go func() {
+			defer localWG.Done()
+			for {
+
+				msg, op, err := wsutil.ReadClientData(conn)
+				if err == nil {
+					messagesFromMe <- message{sender: client, op: op, data: msg}
+				} else {
+					log.Printf("Error on read because %v\n", err)
+					return
+				}
+			}
+		}()
+
+		//write to client
+		go func() {
+			defer conn.Close()
+			defer localWG.Done()
+			for {
+				select {
+				case msg := <-messagesForMe:
+					err = wsutil.WriteServerMessage(conn, msg.op, msg.data)
+					if err != nil {
+						log.Printf("Fatal error on write because %v", err)
+						return
+					}
+
+				case <-closed:
+					return
+				} //select
+			} //for
+		}() //func
+
+		localWG.Wait()
+	}) //end of fun definition
+*/

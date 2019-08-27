@@ -58,3 +58,20 @@ func Equal(a, b []string) bool {
 	}
 	return true
 }
+
+func clientExists(topics *topicDirectory, client clientDetails) bool {
+
+	topics.Lock()
+	existingClients := topics.directory[client.topic]
+	topics.Unlock()
+
+	for _, existingClient := range existingClients {
+		if client.name == existingClient.name {
+			return true
+
+		}
+	}
+
+	return false
+
+}

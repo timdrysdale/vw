@@ -1,0 +1,37 @@
+package cmd
+
+import (
+	"sync"
+)
+
+func HandleMessages(closed <-chan struct{}, wg *sync.WaitGroup, topics *topicDirectory, messagesChan <- chan message) {	
+	defer wg.Done()
+
+	for {
+		select {
+		case <-closed:
+			return
+		case message := <-messagesChan:
+			distributeMessage(&topics, message)
+			}
+		}
+	}
+}
+
+
+func distributeMessage(topics *topicDirectory, message message){
+
+topics
+
+
+		topics.Lock()
+		existingClients := topics.directory[client.topic]
+		filteredClients := existingClients[:0]
+		for _, existingClient := range existingClients {
+			if client.name != existingClient.name {
+				filteredClients = append(filteredClients, existingClient)
+			}
+		}
+		topics.directory[client.topic] = filteredClients
+		topics.Unlock()
+}
