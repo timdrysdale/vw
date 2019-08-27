@@ -31,7 +31,6 @@ import (
 )
 
 var cfgFile string
-var port int
 var listen string
 var output Output
 var inputChannels = make(map[string]chan Packet)
@@ -47,9 +46,9 @@ var rootCmd = &cobra.Command{
 	Short: "VW video websockets transporter",
 	Long:  `VW initialises video and audio captures by syscall, receiving streams via http to avoid pipe latency issues, then forwards combinations of those streams to websocket servers`,
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Printf("In the root function\n")
 		var captureCommands Commands
 		var outputs Output
+		var variables Variables
 		var wg sync.WaitGroup
 		wg.Add(3)
 
@@ -100,6 +99,20 @@ var rootCmd = &cobra.Command{
 
 		}
 
+		var port int
+
+		if viper.IsSet("http.port") {
+			port = viper.GetInt("http.port")
+		} else {
+			var err error
+			port, err = freeport.GetFreePort()
+			if err != nil {
+				panic(err)
+			}
+		}
+
+		listen = fmt.Sprintf("http://127.0.0.1:%d", port)
+
 		err := viper.Unmarshal(&outputs)
 		if err != nil {
 			log.Fatalf("Viper unmarshal outputs failed: %v", err)
@@ -107,11 +120,16 @@ var rootCmd = &cobra.Command{
 
 		populateInputNames(&outputs)
 
-		outurl := viper.GetString("outurl")
-		uuid := viper.GetString("uuid")
-		session := viper.GetString("session")
+		err = viper.Unmarshal(&outputs)
+		if err != nil {
+			log.Fatalf("Viper unmarshal outputs failed: %v", err)
+		}
 
-		configureChannels(outputs, channelBufferLength, &channelList, outurl, uuid, session)
+		err = viper.Unmarshal(&variables)
+		if err != nil {
+			log.Fatalf("Viper unmarshal variables failed: %v", err)
+		}
+		configureChannels(outputs, channelBufferLength, &channelList, variables)
 
 		configureFeedMap(&channelList, feedMap)
 
@@ -167,13 +185,6 @@ func init() {
 	// Cobra also supports local flags, which will only run
 	// when this action is called directly.
 	rootCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
-
-	port, err := freeport.GetFreePort()
-	if err != nil {
-		fmt.Printf("Error getting free port %v", err)
-	}
-
-	listen = fmt.Sprintf("http://127.0.0.1:%d", port)
 
 }
 

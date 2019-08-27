@@ -66,17 +66,12 @@ func expandCaptureCommands(c *Commands, e Endpoints) {
 
 }
 
-func expandDestination(destination string, outurl string, uuid string, session string) string {
+func expandDestination(destination string, variables Variables) string {
 
 	mapper := func(placeholderName string) string {
-		switch placeholderName {
-		case "outurl":
-			return outurl
-		case "uuid":
-			return uuid
-		case "session":
-			return session
-		default:
+		if val, ok := variables.Vars[placeholderName]; ok {
+			return val
+		} else {
 			return fmt.Sprintf("${%s}", placeholderName)
 		}
 	}
@@ -84,12 +79,11 @@ func expandDestination(destination string, outurl string, uuid string, session s
 	return destination
 }
 
-func configureChannels(o Output, channelBufferLength int, channelList *[]ChannelDetails, outurl string, uuid string, session string) {
-
+func configureChannels(o Output, channelBufferLength int, channelList *[]ChannelDetails, variables Variables) {
 	for _, stream := range o.Streams {
 		for _, feed := range stream.InputNames {
 			newChannel := make(chan Packet, channelBufferLength)
-			destination := expandDestination(stream.Destination, outurl, uuid, session)
+			destination := expandDestination(stream.Destination, variables)
 			newChannelDetails := ChannelDetails{Channel: newChannel, Feed: feed, Destination: destination}
 			*channelList = append(*channelList, newChannelDetails)
 		}
