@@ -13,11 +13,11 @@ import (
 
 var twoFeedExample = []byte(`--- 
 commands: 
-  - "ffmpeg -f v4l2 -framerate 25 -video_size 640x480 -i /dev/video0 -s 640x480 -b:v 1024k -bf 0 -f mpegts -codec:v mpeg1video -s 640x480 -b:v 1024k -bf 0 -f mpegts -codec:v mpeg1video ${videoFrontMedium/some/other/path} -s 320x240 -b:v 512k -bf 0 -f mpegts -codec:v mpeg1video ${videoFrontSmall}"
+  - "ffmpeg ${v4l} -i /dev/video0 ${vmed} ${videoFrontMedium/some/other/path} ${vsmall} ${videoFrontSmall}"
   - "ffmpeg -f v4l2 -framerate 25 -video_size 640x480 -i ${myspecialvideo} -s 640x480 -b:v 1024k -bf 0 -f mpegts -codec:v mpeg1video -s 640x480 -b:v 1024k -bf 0 -f mpegts -codec:v mpeg1video ${videoSideMedium} -s 320x240 -b:v 512k -bf 0 -f mpegts -codec:v mpeg1video ${videoSideSmall}"
   - "ffmpeg -f alsa -ar 44100 -i hw:0 -f mpegts -codec:a mp2 -b:a 128k -muxdelay 0.001 -ac 1 -filter:a ''volume=50'' ${audio}"
 
-log: ./vw.log
+log: "./vw.log"
 
 bufferSize: 1024000
 
@@ -29,6 +29,9 @@ clients:
   bufferLength: 3
 
 variables:
+  v4l: "-f v4l2 -framerate 25 -video_size 640x480"
+  vmed: "-s 640x480 -b:v 1024k -bf 0 -f mpegts -codec:v mpeg1video -s 640x480 -b:v 1024k -bf 0 -f mpegts -codec:v mpeg1video"
+  vsmall: "-s 320x240 -b:v 512k -bf 0 -f mpegts -codec:v mpeg1video"
   uuid: 49270598-9da2-4209-98da-e559f0c587b4
   session: 7525cb39-554e-43e1-90ed-3a97e8d1c6bf
   outurl: "wss://video.practable.io:443"
@@ -214,8 +217,16 @@ func TestExpandCaptureCommands(t *testing.T) {
 		t.Errorf("unmarshal commands failed (twoFeedExample) %v", err)
 	}
 
+	var variables Variables
+	variables.Vars = make(map[string]string)
+	variables.Vars["outurl"] = "wss://somwhere.nice:123"
+	variables.Vars["uuid"] = "x8786x"
+	variables.Vars["session"] = "y987y"
+	variables.Vars["v4l"] = "-f v4l2 -framerate 25 -video_size 640x480"
+	variables.Vars["vmed"] = "-s 640x480 -b:v 1024k -bf 0 -f mpegts -codec:v mpeg1video -s 640x480 -b:v 1024k -bf 0 -f mpegts -codec:v mpeg1video"
+	variables.Vars["vsmall"] = "-s 320x240 -b:v 512k -bf 0 -f mpegts -codec:v mpeg1video"
 	// expand the commands in-place
-	expandCaptureCommands(&c, expectedEndpoints)
+	expandCaptureCommands(&c, expectedEndpoints, variables)
 
 	for i, expanded := range expandedCommands {
 		if clean(expanded) != c.Commands[i] {

@@ -46,7 +46,7 @@ func mapEndpoints(o Output, h *url.URL) Endpoints {
 	return e
 }
 
-func expandCaptureCommands(c *Commands, e Endpoints) {
+func expandCaptureCommands(c *Commands, e Endpoints, v Variables) {
 
 	// we rely on e being in scope for the mapper when it runs
 	mapper := func(placeholderName string) string {
@@ -58,6 +58,19 @@ func expandCaptureCommands(c *Commands, e Endpoints) {
 			return fmt.Sprintf("${%s}", placeholderName)
 		}
 
+	}
+
+	for i, raw := range c.Commands {
+		c.Commands[i] = os.Expand(raw, mapper)
+	}
+
+	//now do variables
+	mapper = func(placeholderName string) string {
+		if val, ok := v.Vars[placeholderName]; ok {
+			return val
+		} else {
+			return fmt.Sprintf("${%s}", placeholderName)
+		}
 	}
 
 	for i, raw := range c.Commands {

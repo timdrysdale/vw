@@ -145,7 +145,7 @@ var rootCmd = &cobra.Command{
 			log.Fatalf("Viper unmarshal commands failed: %v", err)
 		}
 
-		expandCaptureCommands(&captureCommands, endpoints)
+		expandCaptureCommands(&captureCommands, endpoints, variables)
 
 		go startHttp(closed, &wg, *h, feedMap)
 
