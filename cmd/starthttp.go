@@ -1,10 +1,8 @@
 package cmd
 
 import (
-	"bytes"
 	"context"
 	"fmt"
-	"io"
 	"log"
 	"net/http"
 	"net/url"
@@ -12,51 +10,63 @@ import (
 	"strconv"
 	"sync"
 	"time"
+
+	"github.com/timdrysdale/vw/config"
 )
 
-func startHTTP(closed <-chan struct{}, wg *sync.WaitGroup, listen url.URL, feedmap FeedMap) {
+func startHTTP(closed <-chan struct{}, wg *sync.WaitGroup, listen url.URL, msgChan chan config.Message) {
+
 	defer wg.Done()
 
 	port, err := strconv.Atoi(listen.Port())
 	if err != nil {
-		panic("Error Converting port into int")
-
+		panic("Error getting port number")
 	}
 
 	wg.Add(1)
-	fmt.Printf("\n Listening on :%d\n", port)
-	srv := startHTTPServer(closed, wg, port, feedmap)
 
-	for {
-		select {
-		case <-closed:
-			fmt.Printf("Starting to close HTTP SERVER %v\n", wg)
-			if err := srv.Shutdown(context.TODO()); err != nil {
-				log.Panicf("failure/timeout shutting down the http server gracefully: %v", err)
-			}
+	srv := startHTTPServer(closed, wg, port, msgChan)
 
-			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second) //TODO make configurable
-			defer cancel()
-
-			srv.SetKeepAlivesEnabled(false)
-			if err := srv.Shutdown(ctx); err != nil {
-				log.Fatalf("Could not gracefully shutdown the server: %v\n", err)
-			}
-			if os.Getenv("DEBUG") == "true" {
-				fmt.Printf("\nExiting startHTTP %v\n", wg)
-			}
-			return
-		default:
-		}
+	if os.Getenv("DEBUG") == "true" {
+		fmt.Printf("\nHTTPServer Listening on: %d\n", port)
 	}
+
+	// TODO: send "start" message to startCapture here
+
+	<-closed
+
+	if os.Getenv("DEBUG") == "true" {
+		fmt.Printf("\nClosing HTTPServer ...\n")
+	}
+
+	if err := srv.Shutdown(context.TODO()); err != nil {
+		log.Panicf("Failure/timeout shutting down HTTP server gracefully: %v", err)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second) //TODO make configurable
+
+	defer cancel()
+
+	srv.SetKeepAlivesEnabled(false)
+
+	if err := srv.Shutdown(ctx); err != nil {
+		log.Fatalf("Could not gracefully shutdown the server: %v\n", err)
+	}
+
+	if os.Getenv("DEBUG") == "true" {
+		fmt.Printf("\n... HTTPServer closed\n")
+	}
+
 }
 
-func startHTTPServer(closed <-chan struct{}, wg *sync.WaitGroup, port int, feedmap FeedMap) *http.Server {
+func startHTTPServer(closed <-chan struct{}, wg *sync.WaitGroup, port int, msgChan chan config.Message) *http.Server {
 	defer wg.Done()
 	addr := fmt.Sprintf(":%d", port)
 	srv := &http.Server{Addr: addr}
 
-	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) { muxingHandler(closed, w, r, feedmap) })
+	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		muxingHandler(closed, w, r, msgChan)
+	})
 
 	wg.Add(1)
 	go func() {
@@ -74,17 +84,13 @@ func startHTTPServer(closed <-chan struct{}, wg *sync.WaitGroup, port int, feedm
 	return srv
 }
 
-func muxingHandler(closed <-chan struct{}, w http.ResponseWriter, r *http.Request, feedmap FeedMap) {
+func muxingHandler(closed <-chan struct{}, w http.ResponseWriter, r *http.Request, messagesFromMe chan config.Message) {
+}
 
-	if channelSlice, ok := feedmap[r.URL.Path]; !ok {
-		fmt.Printf(`\n
----------------------------------
-Unknown stream, check config for:%s\n
---------------------------------\n`, r.URL.Path)
-		return
-	} else {
-		//receive MPEGTS in 188 byte chunks
-		//ffmpeg uses one tcp packet per frame
+/*
+		//identify ourselves,and what path we're handling
+		var name = uuid.New().String()
+		var topic = r.URL.Path
 
 		maxFrameBytes := 1024000 //TODO make configurable
 		chunkSize := 4096        //188
@@ -147,9 +153,11 @@ Unknown stream, check config for:%s\n
 				//	} //if/else
 				//} //if
 			} //select
+
+
 		}
-	}
-}
+
+}*/
 
 /*
 func HandleConnections(closed <-chan struct{}, wg *sync.WaitGroup, clientActionsChan chan clientAction, messagesFromMe chan message, host *url.URL)

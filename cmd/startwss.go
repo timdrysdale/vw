@@ -10,9 +10,10 @@ import (
 	"github.com/gobwas/ws"
 	"github.com/gobwas/ws/wsutil"
 	"github.com/google/uuid"
+	"github.com/timdrysdale/vw/config"
 )
 
-func startWSS(closed <-chan struct{}, wg *sync.WaitGroup, clientMap ClientMap) {
+func startWSS(closed <-chan struct{}, wg *sync.WaitGroup, clientMap config.ClientMap) {
 	defer wg.Done()
 	for url, channels := range clientMap {
 		wg.Add(1)
@@ -22,7 +23,7 @@ func startWSS(closed <-chan struct{}, wg *sync.WaitGroup, clientMap ClientMap) {
 	}
 }
 
-func wssClient(closed <-chan struct{}, wg *sync.WaitGroup, url string, messageChannels []chan Packet, name string) {
+func wssClient(closed <-chan struct{}, wg *sync.WaitGroup, url string, messageChannels []chan config.Packet, name string) {
 
 	defer wg.Done()
 	const timeout = 1000 * time.Millisecond //TODO make configurable

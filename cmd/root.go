@@ -26,6 +26,7 @@ import (
 
 	"github.com/phayes/freeport"
 	"github.com/spf13/cobra"
+	"github.com/timdrysdale/vw/config"
 
 	"github.com/spf13/viper"
 )
@@ -33,10 +34,10 @@ import (
 var cfgFile string
 var port int
 var listen string
-var output Output
-var inputChannels = make(map[string]chan Packet)
+var output config.Streams //TODO change name to stream?
+var inputChannels = make(map[string]chan config.Packet)
 var inputAddresses = make(map[string]string)
-var channelList []ChannelDetails
+var channelList []config.ChannelDetails
 var channelBufferLength int
 var cpuprofile string
 var memprofile string
@@ -48,17 +49,19 @@ var rootCmd = &cobra.Command{
 	Long:  `VW initialises video and audio captures by syscall, receiving streams via http to avoid pipe latency issues, then forwards combinations of those streams to websocket servers`,
 	Run: func(cmd *cobra.Command, args []string) {
 		fmt.Printf("In the root function\n")
-		var captureCommands Commands
-		var outputs Output
+		var captureCommands config.Commands
+		var streams config.Streams
 		var wg sync.WaitGroup
 		wg.Add(3)
 
 		channelBufferLength := 10 //TODO make configurable
-		channelList := make([]ChannelDetails, 0)
+		channelList := make([]config.ChannelDetails, 0)
 		channelSignal := make(chan os.Signal, 1)
-		clientMap := make(ClientMap)
+		clientMap := make(config.ClientMap)
 		closed := make(chan struct{})
-		feedMap := make(FeedMap)
+		feedMap := make(config.FeedMap)
+
+		incomingMessages := make(chan config.Message, int(viper.GetInt("Core.Mux.BufferSize")))
 
 		signal.Notify(channelSignal, os.Interrupt)
 
@@ -100,18 +103,18 @@ var rootCmd = &cobra.Command{
 
 		}
 
-		err := viper.Unmarshal(&outputs)
+		err := viper.Unmarshal(&streams)
 		if err != nil {
-			log.Fatalf("Viper unmarshal outputs failed: %v", err)
+			log.Fatalf("Viper unmarshal streams failed: %v", err)
 		}
 
-		populateInputNames(&outputs)
+		populateInputNames(&streams)
 
 		outurl := viper.GetString("outurl")
 		uuid := viper.GetString("uuid")
 		session := viper.GetString("session")
 
-		configureChannels(outputs, channelBufferLength, &channelList, outurl, uuid, session)
+		configureChannels(streams, channelBufferLength, &channelList, outurl, uuid, session)
 
 		configureFeedMap(&channelList, feedMap)
 
@@ -120,7 +123,7 @@ var rootCmd = &cobra.Command{
 
 		h := getHost()
 
-		endpoints := mapEndpoints(outputs, h)
+		endpoints := mapEndpoints(streams, h)
 
 		err = viper.Unmarshal(&captureCommands)
 		if err != nil {
@@ -129,7 +132,7 @@ var rootCmd = &cobra.Command{
 
 		expandCaptureCommands(&captureCommands, endpoints)
 
-		go startHTTP(closed, &wg, *h, feedMap)
+		go startHTTP(closed, &wg, *h, incomingMessages)
 
 		go startWSS(closed, &wg, clientMap)
 
@@ -164,6 +167,13 @@ func init() {
 	rootCmd.PersistentFlags().StringVarP(&cpuprofile, "cpuprofile", "p", "", "write cpu profile to `file`")
 	rootCmd.PersistentFlags().StringVarP(&memprofile, "memprofile", "m", "", "write memory profile to `file`")
 
+	viper.BindPFlag("cpuprofile", rootCmd.PersistentFlags().Lookup("cpuprofile"))
+	viper.BindPFlag("memprofile", rootCmd.PersistentFlags().Lookup("memprofile"))
+
+	//Viper binding example for future reference
+	//serverCmd.Flags().Int("port", 1138, "Port to run Application server on")
+	//viper.BindPFlag("port", serverCmd.Flags().Lookup("port"))
+
 	// Cobra also supports local flags, which will only run
 	// when this action is called directly.
 	rootCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
@@ -179,6 +189,9 @@ func init() {
 
 // initConfig reads in config file and ENV variables if set.
 func initConfig() {
+
+	// set defaults
+	viper.SetDefault("HTTPShutdownWaitMilliseconds", 5000)
 
 	if cfgFile != "" {
 		// Use config file from the flag.

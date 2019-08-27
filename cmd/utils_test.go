@@ -3,6 +3,8 @@ package cmd
 import (
 	"log"
 	"testing"
+
+	"github.com/timdrysdale/vw/config"
 )
 
 var unix = "foo\r\n"
@@ -59,14 +61,14 @@ func Equal(a, b []string) bool {
 	return true
 }
 
-func clientExists(topics *topicDirectory, client clientDetails) bool {
+func clientExists(topics *config.TopicDirectory, client config.ClientDetails) bool {
 
 	topics.Lock()
-	existingClients := topics.directory[client.topic]
+	existingClients := topics.Directory[client.Topic]
 	topics.Unlock()
 
 	for _, existingClient := range existingClients {
-		if client.name == existingClient.name {
+		if client.Name == existingClient.Name {
 			return true
 
 		}

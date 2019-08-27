@@ -2,9 +2,11 @@ package cmd
 
 import (
 	"sync"
+
+	"github.com/timdrysdale/vw/config"
 )
 
-func HandleMessages(closed <-chan struct{}, wg *sync.WaitGroup, topics *topicDirectory, messagesChan <-chan message) {
+func HandleMessages(closed <-chan struct{}, wg *sync.WaitGroup, topics *config.TopicDirectory, messagesChan <-chan config.Message) {
 	defer wg.Done()
 
 	for {
@@ -17,21 +19,20 @@ func HandleMessages(closed <-chan struct{}, wg *sync.WaitGroup, topics *topicDir
 	}
 }
 
-func distributeMessage(topics *topicDirectory, msg message) {
+func distributeMessage(topics *config.TopicDirectory, msg config.Message) {
 
 	// unsubscribing client would close channel so lock throughout
 	topics.Lock()
 
-	distributionList := topics.directory[msg.sender.topic]
-
+	distributionList := topics.Directory[msg.Sender.Topic]
 	// assuming buffered messageChans, all writes should succeed immediately
 	for _, destination := range distributionList {
 		//don't send to sender
-		if destination.name != msg.sender.name {
+		if destination.Name != msg.Sender.Name {
 			//non-blocking write to chan - skips if can't write
 			//go func() { destination.messagesChan <- message }()
 
-			destination.messagesChan <- msg //we're dropping a lot of messages so try this for now
+			destination.MessagesChan <- msg //we're dropping a lot of messages so try this for now
 
 			//select {
 			//case destination.messagesChan <- msg:

@@ -1,0 +1,26 @@
+package config
+
+// StreamsConfiguration holds an array of Stream structs
+//
+type StreamsConfiguration struct {
+	List []Stream `yaml:"streams"`
+}
+
+//Stream struct holds details of outgoing streams
+//Note that InputNames holds reformatted versions of the
+//feed names read out of the "from" field in the config
+//
+//Example config YAML:
+// ---
+// streams:
+//   -   to: "${relay}/${uuid}/${session}/front/medium"
+//   	  serve: "${localhost}/front/medium"
+//       from:
+//         - audio
+//         - videoFrontMedium
+type Stream struct {
+	From       interface{} `yaml:"from"`
+	InputNames []string
+	Serve      string `yaml:"serve"`
+	To         string `yaml:"to"`
+}

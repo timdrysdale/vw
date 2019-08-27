@@ -7,6 +7,7 @@ import (
 	"os"
 
 	"github.com/phayes/freeport"
+	"github.com/timdrysdale/vw/config"
 )
 
 //func configureEverything() Everything {
@@ -19,25 +20,25 @@ func constructEndpoint(h *url.URL, inputName string) string {
 	return h.String()
 }
 
-func populateInputNames(o *Output) {
+func populateInputNames(s *config.Streams) {
 
 	//for each stream, copy each item in Feeds as string into InputNames
-	for i, s := range o.Streams {
-		feedSlice, _ := s.Feeds.([]interface{})
+	for i, stream := range s.Stream {
+		feedSlice, _ := stream.From.([]interface{})
 		for _, feed := range feedSlice {
-			o.Streams[i].InputNames = append(o.Streams[i].InputNames, slashify(feed.(string)))
+			s.Stream[i].InputNames = append(s.Stream[i].InputNames, slashify(feed.(string)))
 		}
 
 	}
 
 }
 
-func mapEndpoints(o Output, h *url.URL) Endpoints {
+func mapEndpoints(s config.Streams, h *url.URL) config.Endpoints {
 	//go through feeds to collect inputs into map
 
-	var e = make(Endpoints)
+	var e = make(config.Endpoints)
 
-	for _, v := range o.Streams {
+	for _, v := range s.Stream {
 		for _, f := range v.InputNames {
 			e[f] = constructEndpoint(h, f)
 		}
@@ -46,7 +47,7 @@ func mapEndpoints(o Output, h *url.URL) Endpoints {
 	return e
 }
 
-func expandCaptureCommands(c *Commands, e Endpoints) {
+func expandCaptureCommands(c *config.Commands, e config.Endpoints) {
 
 	// we rely on e being in scope for the mapper when it runs
 	mapper := func(placeholderName string) string {
@@ -84,36 +85,36 @@ func expandDestination(destination string, outurl string, uuid string, session s
 	return destination
 }
 
-func configureChannels(o Output, channelBufferLength int, channelList *[]ChannelDetails, outurl string, uuid string, session string) {
+func configureChannels(s config.Streams, channelBufferLength int, channelList *[]config.ChannelDetails, outurl string, uuid string, session string) {
 
-	for _, stream := range o.Streams {
+	for _, stream := range s.Stream {
 		for _, feed := range stream.InputNames {
-			newChannel := make(chan Packet, channelBufferLength)
-			destination := expandDestination(stream.Destination, outurl, uuid, session)
-			newChannelDetails := ChannelDetails{Channel: newChannel, Feed: feed, Destination: destination}
+			newChannel := make(chan config.Packet, channelBufferLength)
+			destination := expandDestination(stream.To, outurl, uuid, session)
+			newChannelDetails := config.ChannelDetails{Channel: newChannel, From: feed, To: destination}
 			*channelList = append(*channelList, newChannelDetails)
 		}
 	}
 }
 
-func configureFeedMap(channelList *[]ChannelDetails, feedMap FeedMap) {
+func configureFeedMap(channelList *[]config.ChannelDetails, feedMap config.FeedMap) {
 
 	for _, channel := range *channelList {
-		if _, ok := feedMap[channel.Feed]; ok {
-			feedMap[channel.Feed] = append(feedMap[channel.Feed], channel.Channel)
+		if _, ok := feedMap[channel.From]; ok {
+			feedMap[channel.From] = append(feedMap[channel.From], channel.Channel)
 		} else {
-			feedMap[channel.Feed] = []chan Packet{channel.Channel}
+			feedMap[channel.From] = []chan config.Packet{channel.Channel}
 		}
 	}
 }
 
-func configureClientMap(channelList *[]ChannelDetails, clientMap ClientMap) {
+func configureClientMap(channelList *[]config.ChannelDetails, clientMap config.ClientMap) {
 
 	for _, channel := range *channelList {
-		if _, ok := clientMap[channel.Destination]; ok {
-			clientMap[channel.Destination] = append(clientMap[channel.Destination], channel.Channel)
+		if _, ok := clientMap[channel.To]; ok {
+			clientMap[channel.To] = append(clientMap[channel.To], channel.Channel)
 		} else {
-			clientMap[channel.Destination] = []chan Packet{channel.Channel}
+			clientMap[channel.To] = []chan config.Packet{channel.Channel}
 		}
 	}
 }

@@ -7,9 +7,11 @@ import (
 	"os/exec"
 	"strings"
 	"sync"
+
+	"github.com/timdrysdale/vw/config"
 )
 
-func runCaptureCommands(closed <-chan struct{}, wgExternal *sync.WaitGroup, c Commands) {
+func runCaptureCommands(closed <-chan struct{}, wgExternal *sync.WaitGroup, c config.Commands) {
 	wgExternal.Done()
 
 	var wg sync.WaitGroup

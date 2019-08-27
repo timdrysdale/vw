@@ -1,0 +1,5 @@
+package config
+
+type CoreConfiguration struct {
+	muxWorkerCount int
+}

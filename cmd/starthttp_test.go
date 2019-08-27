@@ -10,23 +10,24 @@ import (
 	"time"
 
 	"github.com/phayes/freeport"
+	"github.com/timdrysdale/vw/config"
 )
 
 var msg1 = []byte{'f', 'o', 'o'}
 var msg2 = []byte{'b', 'a', 'r'}
-var packet1 = Packet{Data: msg1}
-var packet2 = Packet{Data: msg2}
+var packet1 = config.Packet{Data: msg1}
+var packet2 = config.Packet{Data: msg2}
 
 func TestChannelRouting(t *testing.T) {
 
 	//make a feedmap
-	ch1a := make(chan Packet, 6) //buffer so we can do all the writing first
-	ch1b := make(chan Packet, 6)
-	ch2 := make(chan Packet, 6)
+	ch1a := make(chan config.Packet, 6) //buffer so we can do all the writing first
+	ch1b := make(chan config.Packet, 6)
+	ch2 := make(chan config.Packet, 6)
 
-	feedmap := make(FeedMap)
-	feedmap["/ch1"] = make([]chan Packet, 2)
-	feedmap["/ch2"] = make([]chan Packet, 1)
+	feedmap := make(config.FeedMap)
+	feedmap["/ch1"] = make([]chan config.Packet, 2)
+	feedmap["/ch2"] = make([]chan config.Packet, 1)
 
 	feedmap["/ch1"][0] = ch1a
 	feedmap["/ch1"][1] = ch1b
@@ -64,8 +65,9 @@ func TestChannelRouting(t *testing.T) {
 
 	var wg sync.WaitGroup
 	wg.Add(1)
+	msgChan := make(chan config.Message, 5)
 	closed := make(chan struct{})
-	srv := startHTTPServer(closed, &wg, port, feedmap)
+	srv := startHTTPServer(closed, &wg, port, msgChan)
 	time.Sleep(time.Second)
 
 	req1, err := http.NewRequest("POST", url1, bytes.NewBuffer(msg1))

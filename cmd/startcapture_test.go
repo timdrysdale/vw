@@ -4,19 +4,21 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/timdrysdale/vw/config"
 )
 
 var cmd0 = "sleep 0.1"
 var cmd1 = "sleep 0.2"
 var cmd2 = "sleep 0.3"
 
-var testCommands = Commands{Commands: []string{cmd0, cmd1, cmd2}}
+var testCommands = config.Commands{Commands: []string{cmd0, cmd1, cmd2}}
 
 var cmdSlow0 = "sleep 1"
 var cmdSlow1 = "sleep 2"
 var cmdSlow2 = "sleep 3"
 
-var testCommandsSlow = Commands{Commands: []string{cmdSlow0, cmdSlow1, cmdSlow2}}
+var testCommandsSlow = config.Commands{Commands: []string{cmdSlow0, cmdSlow1, cmdSlow2}}
 
 func TestRunCommands(t *testing.T) {
 	// try sleeping in external processes

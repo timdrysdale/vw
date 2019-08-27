@@ -1,0 +1,8 @@
+package config
+
+// StreamsConfiguration holds an array of Stream structs
+//
+type OutputsConfiguration struct {
+	Streams cmd.Streams `yaml:"streams"`
+}
+

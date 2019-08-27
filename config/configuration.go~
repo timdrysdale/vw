@@ -1,0 +1,9 @@
+package config
+
+type Configuration struct {
+	API     APIConfiguration
+	Capture CaptureConfiguration
+	Core    CoreConfiguration
+	HTTP    HTTPConfiguration
+	WSS     WSSConfiguration
+}

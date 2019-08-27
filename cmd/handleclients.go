@@ -2,9 +2,11 @@ package cmd
 
 import (
 	"sync"
+
+	"github.com/timdrysdale/vw/config"
 )
 
-func HandleClients(closed <-chan struct{}, wg *sync.WaitGroup, topics *topicDirectory, clientActionsChan chan clientAction) {
+func HandleClients(closed <-chan struct{}, wg *sync.WaitGroup, topics *config.TopicDirectory, clientActionsChan chan config.ClientAction) {
 	defer wg.Done()
 
 	for {
@@ -12,41 +14,41 @@ func HandleClients(closed <-chan struct{}, wg *sync.WaitGroup, topics *topicDire
 		case <-closed:
 			return
 		case request := <-clientActionsChan:
-			if request.action == clientAdd {
+			if request.Action == config.ClientAdd {
 
-				addClientToTopic(topics, request.client)
+				addClientToTopic(topics, request.Client)
 
-			} else if request.action == clientDelete {
-				deleteClientFromTopic(topics, request.client)
+			} else if request.Action == config.ClientDelete {
+				deleteClientFromTopic(topics, request.Client)
 
 			}
 		}
 	}
 }
 
-func addClientToTopic(topics *topicDirectory, client clientDetails) {
+func addClientToTopic(topics *config.TopicDirectory, client config.ClientDetails) {
 
-	_, exists := topics.directory[client.topic]
+	_, exists := topics.Directory[client.Topic]
 
 	if !exists {
 		topics.Lock()
-		topics.directory[client.topic] = []clientDetails{client}
+		topics.Directory[client.Topic] = []config.ClientDetails{client}
 		topics.Unlock()
 	} else {
 		topics.Lock()
-		topics.directory[client.topic] = append(topics.directory[client.topic], client)
+		topics.Directory[client.Topic] = append(topics.Directory[client.Topic], client)
 		topics.Unlock()
 	}
 
 }
 
-func deleteClientFromTopic(topics *topicDirectory, client clientDetails) {
+func deleteClientFromTopic(topics *config.TopicDirectory, client config.ClientDetails) {
 
-	_, exists := topics.directory[client.topic]
+	_, exists := topics.Directory[client.Topic]
 	if exists {
 		topics.Lock()
-		existingClients := topics.directory[client.topic]
-		topics.directory[client.topic] = filterClients(existingClients, client)
+		existingClients := topics.Directory[client.Topic]
+		topics.Directory[client.Topic] = filterClients(existingClients, client)
 		topics.Unlock()
 	}
 

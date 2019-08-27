@@ -3,6 +3,8 @@ package cmd
 import (
 	"fmt"
 	"strings"
+
+	"github.com/timdrysdale/vw/config"
 )
 
 func clean(in string) string {
@@ -24,10 +26,10 @@ func slashify(path string) string {
 
 }
 
-func filterClients(clients []clientDetails, filter clientDetails) []clientDetails {
+func filterClients(clients []config.ClientDetails, filter config.ClientDetails) []config.ClientDetails {
 	filteredClients := clients[:0]
 	for _, client := range clients {
-		if client.name != filter.name {
+		if client.Name != filter.Name {
 			filteredClients = append(filteredClients, client)
 		}
 	}
