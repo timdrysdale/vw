@@ -20,6 +20,7 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"runtime/pprof"
 	"sync"
 	"time"
 
@@ -37,6 +38,8 @@ var inputChannels = make(map[string]chan Packet)
 var inputAddresses = make(map[string]string)
 var channelList []ChannelDetails
 var channelBufferLength int
+var cpuprofile string
+var memprofile string
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
@@ -60,12 +63,42 @@ var rootCmd = &cobra.Command{
 		signal.Notify(channelSignal, os.Interrupt)
 
 		go func() {
+			time.Sleep(5 * time.Second)
+			if memprofile != "" {
+				f, err := os.Create(memprofile)
+				if err != nil {
+					log.Fatal("Could not create memory profile:", err)
+				}
+				defer f.Close()
+				if err := pprof.WriteHeapProfile(f); err != nil {
+					log.Fatal("could not write memory profile: ", err)
+				}
+				defer pprof.StopCPUProfile()
+
+			}
+			close(closed)
+		}()
+
+		go func() {
 			for _ = range channelSignal {
 				close(closed)
 				wg.Wait()
 				os.Exit(1)
 			}
 		}()
+
+		if cpuprofile != "" {
+			f, err := os.Create(cpuprofile)
+			if err != nil {
+				log.Fatal("Could not create CPU profile: ", err)
+			}
+			defer f.Close()
+			if err := pprof.StartCPUProfile(f); err != nil {
+				fmt.Printf("Could not start CPU profile: %v\n", err)
+			}
+			defer pprof.StopCPUProfile()
+
+		}
 
 		err := viper.Unmarshal(&outputs)
 		if err != nil {
@@ -128,6 +161,8 @@ func init() {
 	// will be global for your application.
 
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.vw.yaml)")
+	rootCmd.PersistentFlags().StringVarP(&cpuprofile, "cpuprofile", "p", "", "write cpu profile to `file`")
+	rootCmd.PersistentFlags().StringVarP(&memprofile, "memprofile", "m", "", "write memory profile to `file`")
 
 	// Cobra also supports local flags, which will only run
 	// when this action is called directly.

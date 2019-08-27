@@ -108,31 +108,16 @@ Unknown stream, check config for:%s\n
 				//frameBuffer.Reset() //flush first second of video with any non-188 byte aligned header
 				//mute = false
 			case <-tickerFlush.C:
+
 				//flush buffer to internal send channel
 				n, err := frameBuffer.Read(frame)
-				//fmt.Printf("\n%v\n", frame[:n])
+
 				if err == nil && n > 0 {
 					packet := Packet{Data: frame[:n]} //slice length is high-low
 					chunkCount = chunkCount + (n / chunkSize)
 					for _, channel := range channelSlice {
 						channel <- packet
 					} //for
-					//reset buffer
-
-					//lasti := 0
-					//for i, val := range packet.Data {
-					//	if val == 0x47 {
-					//		fmt.Printf("http: %d spaced at %v\n", val, i-lasti)
-					//		lasti = i
-					//	}
-					//}
-
-					//for i, val := range frame[:n] {
-					//	if val == 0x47 {
-					//	fmt.Printf("%d %v\n", i, val)
-					//	}
-					//}
-
 					frameBuffer.Reset()
 				} else {
 					//fmt.Printf("\nFrame buffer read error %v\n", err)
@@ -146,11 +131,14 @@ Unknown stream, check config for:%s\n
 				return
 			default:
 				// get a chunk from the response body
-				_, err := io.ReadFull(r.Body, chunk)
+				n, err := io.ReadFull(r.Body, chunk)
 				if err == nil {
 					//	if n == 188 {
 					_, _ = frameBuffer.Write(chunk)
 					//fmt.Printf("\n%v\n", chunk)
+				}
+				if n < chunkSize {
+					time.Sleep(1 * time.Millisecond) //reduce CPU? nope.
 				}
 				//		if err != nil {
 				//			fmt.Printf("\nFailed to write chunk to frameBuffer;' only wrote %d because %v\n", n, err)
