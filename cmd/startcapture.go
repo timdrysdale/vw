@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"fmt"
 	"log"
 	"os"
 	"os/exec"
@@ -25,12 +24,7 @@ func runCaptureCommands(closed <-chan struct{}, wgExternal *sync.WaitGroup, c Co
 func runCommand(closed <-chan struct{}, wg *sync.WaitGroup, command string) {
 	defer wg.Done()
 
-	// Start a process:
 	tokens := strings.Split(command, " ")
-	fmt.Printf("Starting capture with:\n%s\n", command)
-	for i, tk := range tokens {
-		fmt.Printf("%d(%s)\n", i, tk)
-	}
 	cmd := exec.Command(tokens[0], tokens[1:]...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
@@ -57,8 +51,6 @@ func runCommand(closed <-chan struct{}, wg *sync.WaitGroup, command string) {
 			return
 
 		case <-finished:
-			fmt.Printf("Exited runCommand %v\n", wg)
-			//TODO shutdown the program so that we can use daemon monitoring to spot errors with capture
 			return
 
 		default:
