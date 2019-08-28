@@ -48,7 +48,6 @@ var rootCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 
 		var wg sync.WaitGroup
-		wg.Add(3)
 
 		//channelBufferLength := 10 //TODO make configurable
 		if viper.IsSet("mux.bufferLength") {
@@ -122,6 +121,16 @@ var rootCmd = &cobra.Command{
 
 		populateInputNames(&outputs)
 
+		var writers ToFile
+		err = viper.Unmarshal(&writers)
+		if err != nil {
+			log.Fatalf("Viper unmarshal writers failed: %v", err)
+		}
+
+		populateInputNamesForWriters(&writers)
+
+		fmt.Printf("Writers:\n%v\n", writers)
+
 		var variables Variables
 		variables.Vars = viper.GetStringMapString("variables")
 
@@ -131,12 +140,6 @@ var rootCmd = &cobra.Command{
 
 		fmt.Printf("Vars: %v\n", variables)
 		fmt.Printf("Vars via viper: %v\n", viper.Get("variables"))
-		//configureChannels(outputs, channelBufferLength, &channelList, variables)
-
-		//configureFeedMap(&channelList, feedMap)
-
-		//configureClientMap(&channelList, clientMap)
-		//fmt.Printf("\nClient Map:\n%v\n", clientMap)
 
 		h := getHost()
 
@@ -170,6 +173,7 @@ var rootCmd = &cobra.Command{
 
 		fmt.Printf("http: %v\n", httpOpts)
 
+		wg.Add(1)
 		go startHttp(closed, &wg, *h, httpOpts, messagesToDistribute)
 
 		expandDestinations(&outputs, variables)
@@ -186,16 +190,17 @@ var rootCmd = &cobra.Command{
 		}
 		fmt.Printf("client: %v\n", clientOpts)
 
+		wg.Add(3)
+		go HandleMessages(closed, &wg, &topics, messagesToDistribute)
+		go HandleClients(closed, &wg, &topics, clientActionsChan)
 		go startWss(closed, &wg, outputs, clientActionsChan, clientOpts)
+		go startWriters(closed, &wg, writers, clientActionsChan)
 
 		// TODO wait until the http server is up - maybe send a test response? or have it signal on a channel?
 		time.Sleep(1000 * time.Millisecond)
 
+		wg.Add(1)
 		go runCaptureCommands(closed, &wg, captureCommands)
-
-		wg.Add(2)
-		go HandleMessages(closed, &wg, &topics, messagesToDistribute)
-		go HandleClients(closed, &wg, &topics, clientActionsChan)
 
 		wg.Wait()
 		time.Sleep(time.Second)

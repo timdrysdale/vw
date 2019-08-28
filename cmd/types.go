@@ -23,6 +23,17 @@ type Output struct {
 	Streams []Stream `yaml:"streams"`
 }
 
+type Writer struct {
+	File       string      `yaml:"file"`
+	Feeds      interface{} `yaml:"feeds"`
+	InputNames []string
+	Debug      bool `yaml:"debug"`
+}
+
+type ToFile struct {
+	Writers []Writer `yaml:"writers"`
+}
+
 type Packet struct {
 	Data []byte
 }
