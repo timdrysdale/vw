@@ -13,30 +13,21 @@ import (
 
 var twoFeedExample = []byte(`--- 
 commands: 
-  - "ffmpeg ${v4l} -i /dev/video0 ${vmed} ${videoFrontMedium/some/other/path} ${vsmall} ${videoFrontSmall}"
+  - "ffmpeg -f v4l2 -framerate 25 -video_size 640x480 -i /dev/video0 -s 640x480 -b:v 1024k -bf 0 -f mpegts -codec:v mpeg1video -s 640x480 -b:v 1024k -bf 0 -f mpegts -codec:v mpeg1video ${videoFrontMedium/some/other/path} -s 320x240 -b:v 512k -bf 0 -f mpegts -codec:v mpeg1video ${videoFrontSmall}"
   - "ffmpeg -f v4l2 -framerate 25 -video_size 640x480 -i ${myspecialvideo} -s 640x480 -b:v 1024k -bf 0 -f mpegts -codec:v mpeg1video -s 640x480 -b:v 1024k -bf 0 -f mpegts -codec:v mpeg1video ${videoSideMedium} -s 320x240 -b:v 512k -bf 0 -f mpegts -codec:v mpeg1video ${videoSideSmall}"
   - "ffmpeg -f alsa -ar 44100 -i hw:0 -f mpegts -codec:a mp2 -b:a 128k -muxdelay 0.001 -ac 1 -filter:a ''volume=50'' ${audio}"
-
-log: "./vw.log"
-
+control: 
+  path: control
+  scheme: http
+outurl: "wss://video.practable.io:443"
+log: ./vw.log
+retry_wait: 1000
+strict: false
+tuning: 
 bufferSize: 1024000
-
-mux:
-  workers: 3
-  bufferLength: 12
-
-clients: 
-  bufferLength: 3
-
-variables:
-  v4l: "-f v4l2 -framerate 25 -video_size 640x480"
-  vmed: "-s 640x480 -b:v 1024k -bf 0 -f mpegts -codec:v mpeg1video -s 640x480 -b:v 1024k -bf 0 -f mpegts -codec:v mpeg1video"
-  vsmall: "-s 320x240 -b:v 512k -bf 0 -f mpegts -codec:v mpeg1video"
-  uuid: 49270598-9da2-4209-98da-e559f0c587b4
-  session: 7525cb39-554e-43e1-90ed-3a97e8d1c6bf
-  outurl: "wss://video.practable.io:443"
-  otherurl: "wss://video.elsewhere.io:443"
-
+uuid: 49270598-9da2-4209-98da-e559f0c587b4
+session: 7525cb39-554e-43e1-90ed-3a97e8d1c6bf
+verbose: false
 streams: 
   -   destination: "${outurl}/${uuid}/${session}/front/medium"
       feeds: 
@@ -50,7 +41,7 @@ streams:
       feeds: 
         - audio
         - "videoSideMedium/"
-  -   destination: "${otherurl}/${uuid}/${session}/side/small"
+  -   destination: "${outurl}/${uuid}/${session}/side/small"
       feeds: 
         - audio
         - videoSideSmall
@@ -67,14 +58,14 @@ var streamFeeds = []string{"audio", "videoFrontSmall"}
 var stream0 = Stream{Destination: "${outurl}/${uuid}/${session}/front/medium", InputNames: []string{"/audio", "/videoFrontMedium/some/other/path"}}
 var stream1 = Stream{Destination: "${outurl}/${uuid}/${session}/front/small", InputNames: []string{"/audio", "/videoFrontSmall"}}
 var stream2 = Stream{Destination: "${outurl}/${uuid}/${session}/side/medium", InputNames: []string{"/audio", "/videoSideMedium"}}
-var stream3 = Stream{Destination: "${otherurl}/${uuid}/${session}/side/small", InputNames: []string{"/audio", "/videoSideSmall"}}
+var stream3 = Stream{Destination: "${outurl}/${uuid}/${session}/side/small", InputNames: []string{"/audio", "/videoSideSmall"}}
 
 var twoFeedOutputs = Output{[]Stream{stream0, stream1, stream2, stream3}}
 
 var expectedChannelCountForClientMap = map[string]int{"wss://somwhere.nice:123/x8786x/y987y/front/medium": 2,
 	"wss://somwhere.nice:123/x8786x/y987y/front/small": 2,
 	"wss://somwhere.nice:123/x8786x/y987y/side/medium": 2,
-	"wss://somwhere.great:123/x8786x/y987y/side/small": 2}
+	"wss://somwhere.nice:123/x8786x/y987y/side/small":  2}
 
 var expectedChannelCountForFeedMap = map[string]int{"/audio": 4, "/videoFrontMedium/some/other/path": 1, "/videoFrontSmall": 1, "/videoSideMedium": 1, "/videoSideSmall": 1}
 
@@ -217,16 +208,8 @@ func TestExpandCaptureCommands(t *testing.T) {
 		t.Errorf("unmarshal commands failed (twoFeedExample) %v", err)
 	}
 
-	var variables Variables
-	variables.Vars = make(map[string]string)
-	variables.Vars["outurl"] = "wss://somwhere.nice:123"
-	variables.Vars["uuid"] = "x8786x"
-	variables.Vars["session"] = "y987y"
-	variables.Vars["v4l"] = "-f v4l2 -framerate 25 -video_size 640x480"
-	variables.Vars["vmed"] = "-s 640x480 -b:v 1024k -bf 0 -f mpegts -codec:v mpeg1video -s 640x480 -b:v 1024k -bf 0 -f mpegts -codec:v mpeg1video"
-	variables.Vars["vsmall"] = "-s 320x240 -b:v 512k -bf 0 -f mpegts -codec:v mpeg1video"
 	// expand the commands in-place
-	expandCaptureCommands(&c, expectedEndpoints, variables)
+	expandCaptureCommands(&c, expectedEndpoints)
 
 	for i, expanded := range expandedCommands {
 		if clean(expanded) != c.Commands[i] {
@@ -244,13 +227,10 @@ func TestConfigureChannels(t *testing.T) {
 
 	channelList := make([]ChannelDetails, 0)
 
-	var variables Variables
-	variables.Vars = make(map[string]string)
-	variables.Vars["outurl"] = "wss://somwhere.nice:123"
-	variables.Vars["uuid"] = "x8786x"
-	variables.Vars["session"] = "y987y"
-
-	configureChannels(o, channelBufferLength, &channelList, variables)
+	outurl := "wss://somwhere.nice:123"
+	uuid := "x8786x"
+	session := "y987y"
+	configureChannels(o, channelBufferLength, &channelList, outurl, uuid, session)
 
 	if len(channelList) != 8 {
 		t.Errorf("Wrong number of channels configured; expected 8, got %d", len(channelList))
@@ -302,14 +282,10 @@ func TestMakeFeedMap(t *testing.T) {
 	channelBufferLength := 2 //we're not doing much with them, make bigger in production
 
 	channelList := make([]ChannelDetails, 0)
-
-	var variables Variables
-	variables.Vars = make(map[string]string)
-	variables.Vars["outurl"] = "wss://somwhere.nice:123"
-	variables.Vars["uuid"] = "x8786x"
-	variables.Vars["session"] = "y987y"
-
-	configureChannels(o, channelBufferLength, &channelList, variables)
+	outurl := "wss://somwhere.nice:123"
+	uuid := "x8786x"
+	session := "y987y"
+	configureChannels(o, channelBufferLength, &channelList, outurl, uuid, session)
 
 	feedMap := make(FeedMap)
 
@@ -335,14 +311,10 @@ func TestMakeClientMap(t *testing.T) {
 
 	channelList := make([]ChannelDetails, 0)
 
-	var variables Variables
-	variables.Vars = make(map[string]string)
-	variables.Vars["outurl"] = "wss://somwhere.nice:123"
-	variables.Vars["uuid"] = "x8786x"
-	variables.Vars["session"] = "y987y"
-	variables.Vars["otherurl"] = "wss://somwhere.great:123"
-
-	configureChannels(o, channelBufferLength, &channelList, variables)
+	outurl := "wss://somwhere.nice:123"
+	uuid := "x8786x"
+	session := "y987y"
+	configureChannels(o, channelBufferLength, &channelList, outurl, uuid, session)
 
 	clientMap := make(ClientMap)
 
@@ -357,4 +329,23 @@ func TestMakeClientMap(t *testing.T) {
 			t.Errorf("Wrong number of channels associated with feed %s; expected %d got %d", feed, expectedChannelCountForClientMap[feed], len(channels))
 		}
 	}
+}
+
+func TestGetUrlOut(t *testing.T) {
+	v := viper.New()
+	v.SetConfigType("yaml")
+	err = v.ReadConfig(bytes.NewBuffer(twoFeedExample))
+	if err != nil {
+		log.Fatalf("read config failed (twoFeedExample) %v", err)
+	}
+
+	if !v.IsSet("outurl") {
+		t.Errorf("Outgoing URL outurl is not set\n")
+	}
+	outurl := v.GetString("outurl")
+	expected := "wss://video.practable.io:443"
+	if outurl != expected {
+		t.Errorf("Error getting host from config. Wanted %v, got %v\n", expected, outurl)
+	}
+
 }

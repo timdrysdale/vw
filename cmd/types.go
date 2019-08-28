@@ -9,8 +9,8 @@ type Endpoints map[string]string
 type Stream struct {
 	Destination string      `yaml:"destination"`
 	Feeds       interface{} `yaml:"feeds"`
-	Local       string      `yaml:"local"`
 	InputNames  []string
+	//InputChannels []chan Packet
 }
 
 type Output struct {
@@ -31,20 +31,15 @@ type ChannelDetails struct {
 	Destination string
 }
 
-type Variables struct {
-	Vars map[string]string `yaml:"variables"`
-}
-
-type ClientOptions struct {
-	BufferSize int `yaml:"bufferSize"`
-}
-
-type MuxOptions struct {
-	BufferSize int `yaml:"bufferSize"`
-	Workers    int `yaml:"workers"`
-}
-
-type HTTPOptions struct {
-	Port   int `yaml:"port"`
-	WaitMS int `yaml:"waitMS"`
-}
+//config:
+//  control:
+//    path: control
+//    scheme: http
+//  host: "wss://video.practable.io:443"
+//  log: ./vw.log
+//  retry_wait: 1000
+//  strict: false
+//  tuning:
+//    bufferSize: 1024000
+//  uuid: 49270598-9da2-4209-98da-e559f0c587b4
+//  verbose: false

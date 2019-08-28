@@ -46,7 +46,7 @@ func mapEndpoints(o Output, h *url.URL) Endpoints {
 	return e
 }
 
-func expandCaptureCommands(c *Commands, e Endpoints, v Variables) {
+func expandCaptureCommands(c *Commands, e Endpoints) {
 
 	// we rely on e being in scope for the mapper when it runs
 	mapper := func(placeholderName string) string {
@@ -64,27 +64,19 @@ func expandCaptureCommands(c *Commands, e Endpoints, v Variables) {
 		c.Commands[i] = os.Expand(raw, mapper)
 	}
 
-	//now do variables
-	mapper = func(placeholderName string) string {
-		if val, ok := v.Vars[placeholderName]; ok {
-			return val
-		} else {
-			return fmt.Sprintf("${%s}", placeholderName)
-		}
-	}
-
-	for i, raw := range c.Commands {
-		c.Commands[i] = os.Expand(raw, mapper)
-	}
-
 }
 
-func expandDestination(destination string, variables Variables) string {
+func expandDestination(destination string, outurl string, uuid string, session string) string {
 
 	mapper := func(placeholderName string) string {
-		if val, ok := variables.Vars[placeholderName]; ok {
-			return val
-		} else {
+		switch placeholderName {
+		case "outurl":
+			return outurl
+		case "uuid":
+			return uuid
+		case "session":
+			return session
+		default:
 			return fmt.Sprintf("${%s}", placeholderName)
 		}
 	}
@@ -92,11 +84,12 @@ func expandDestination(destination string, variables Variables) string {
 	return destination
 }
 
-func configureChannels(o Output, channelBufferLength int, channelList *[]ChannelDetails, variables Variables) {
+func configureChannels(o Output, channelBufferLength int, channelList *[]ChannelDetails, outurl string, uuid string, session string) {
+
 	for _, stream := range o.Streams {
 		for _, feed := range stream.InputNames {
 			newChannel := make(chan Packet, channelBufferLength)
-			destination := expandDestination(stream.Destination, variables)
+			destination := expandDestination(stream.Destination, outurl, uuid, session)
 			newChannelDetails := ChannelDetails{Channel: newChannel, Feed: feed, Destination: destination}
 			*channelList = append(*channelList, newChannelDetails)
 		}
