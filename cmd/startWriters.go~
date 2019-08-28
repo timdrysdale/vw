@@ -1,0 +1,51 @@
+package cmd
+
+
+
+func startWriters(closed <-chan struct{}, wg *sync.WaitGroup, writers ToFile, clientActionsChan chan clientActions) {
+	defer wg.Done()
+	for _, writer := range writers.Writers {
+		wg.Add(1)
+		name := "fileWriter(" + uuid.New().String()[:3] + "):"
+		go writerClient(closed, wg, writer, name, clientActionsChan)
+		log.Printf("%s spawned", name)
+	}
+}
+
+func writerClient(closed <-chan struct{}, wg *sync.WaitGroup, stream Stream, name string, clientActionsChan chan clientAction) {
+
+	defer wg.Done()
+	messagesForMe := make(chan message, 10)
+
+	for i, input := range stream.InputNames {
+
+		client := clientDetails{name: name, topic: input, messagesChan: messagesForMe}
+		fmt.Printf("\n%d: %s subscribing to %s\n", i, name, input)
+		clientActionsChan <- clientAction{action: clientAdd, client: client}
+
+		defer func() {
+			clientActionsChan <- clientAction{action: clientDelete, client: client}
+			fmt.Printf("Disconnected %v, deleting from topics\n", client)
+		}()
+	}
+	for {
+			file, err := os.Open(writer.File)
+		defer file.Close()
+			for {
+				select {
+				case <-closed:
+					closeConn(conn, name)
+					return
+				case msg := <-messagesForMe:
+
+					err := wsutil.WriteClientMessage(conn, ws.OpBinary, msg.data)
+
+					if err != nil {
+						//closefile
+						return
+					}
+				}
+			}
+		}
+	}
+}
