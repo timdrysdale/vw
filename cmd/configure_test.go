@@ -6,7 +6,6 @@ import (
 	"net/url"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/spf13/viper"
 )
@@ -235,126 +234,126 @@ func TestExpandCaptureCommands(t *testing.T) {
 	}
 }
 
-func TestConfigureChannels(t *testing.T) {
+//func TestConfigureChannels(t *testing.T) {
+//
+//	//known-good output configuration from earlier
+//	o := twoFeedOutputs
+//
+//	channelBufferLength := 2 //we're not doing much with them, make bigger in production
+//
+//	channelList := make([]ChannelDetails, 0)
+//
+//	var variables Variables
+//	variables.Vars = make(map[string]string)
+//	variables.Vars["outurl"] = "wss://somwhere.nice:123"
+//	variables.Vars["uuid"] = "x8786x"
+//	variables.Vars["session"] = "y987y"
+//
+//	configureChannels(o, channelBufferLength, &channelList, variables)
+//
+//	if len(channelList) != 8 {
+//		t.Errorf("Wrong number of channels configured; expected 8, got %d", len(channelList))
+//	}
+//
+//	// check a channel is useable, and not duplicated
+//	channelList[3].Channel <- Packet{Data: []byte("h")}
+//	channelList[3].Channel <- Packet{Data: []byte("h")}
+//
+//	for i := 0; i <= 1; i++ {
+//		select {
+//
+//		case <-channelList[0].Channel:
+//			t.Errorf("Wrong channel got the message")
+//
+//		case <-channelList[1].Channel:
+//			t.Errorf("Wrong channel got the message")
+//
+//		case <-channelList[2].Channel:
+//			t.Errorf("Wrong channel got the message")
+//
+//		case <-channelList[3].Channel:
+//			//got the right channel, phew.
+//
+//		case <-channelList[4].Channel:
+//			t.Errorf("Wrong channel got the message")
+//
+//		case <-channelList[5].Channel:
+//			t.Errorf("Wrong channel got the message")
+//
+//		case <-channelList[6].Channel:
+//			t.Errorf("Wrong channel got the message")
+//
+//		case <-channelList[7].Channel:
+//			t.Errorf("Wrong channel got the message")
+//
+//		case <-time.After(time.Millisecond):
+//			t.Errorf("Channels timed out")
+//		}
+//	}
+//
+//}
 
-	//known-good output configuration from earlier
-	o := twoFeedOutputs
-
-	channelBufferLength := 2 //we're not doing much with them, make bigger in production
-
-	channelList := make([]ChannelDetails, 0)
-
-	var variables Variables
-	variables.Vars = make(map[string]string)
-	variables.Vars["outurl"] = "wss://somwhere.nice:123"
-	variables.Vars["uuid"] = "x8786x"
-	variables.Vars["session"] = "y987y"
-
-	configureChannels(o, channelBufferLength, &channelList, variables)
-
-	if len(channelList) != 8 {
-		t.Errorf("Wrong number of channels configured; expected 8, got %d", len(channelList))
-	}
-
-	// check a channel is useable, and not duplicated
-	channelList[3].Channel <- Packet{Data: []byte("h")}
-	channelList[3].Channel <- Packet{Data: []byte("h")}
-
-	for i := 0; i <= 1; i++ {
-		select {
-
-		case <-channelList[0].Channel:
-			t.Errorf("Wrong channel got the message")
-
-		case <-channelList[1].Channel:
-			t.Errorf("Wrong channel got the message")
-
-		case <-channelList[2].Channel:
-			t.Errorf("Wrong channel got the message")
-
-		case <-channelList[3].Channel:
-			//got the right channel, phew.
-
-		case <-channelList[4].Channel:
-			t.Errorf("Wrong channel got the message")
-
-		case <-channelList[5].Channel:
-			t.Errorf("Wrong channel got the message")
-
-		case <-channelList[6].Channel:
-			t.Errorf("Wrong channel got the message")
-
-		case <-channelList[7].Channel:
-			t.Errorf("Wrong channel got the message")
-
-		case <-time.After(time.Millisecond):
-			t.Errorf("Channels timed out")
-		}
-	}
-
-}
-
-func TestMakeFeedMap(t *testing.T) {
-
-	//known-good output configuration from earlier
-	o := twoFeedOutputs
-
-	channelBufferLength := 2 //we're not doing much with them, make bigger in production
-
-	channelList := make([]ChannelDetails, 0)
-
-	var variables Variables
-	variables.Vars = make(map[string]string)
-	variables.Vars["outurl"] = "wss://somwhere.nice:123"
-	variables.Vars["uuid"] = "x8786x"
-	variables.Vars["session"] = "y987y"
-
-	configureChannels(o, channelBufferLength, &channelList, variables)
-
-	feedMap := make(FeedMap)
-
-	configureFeedMap(&channelList, feedMap)
-
-	if len(feedMap) != len(expectedChannelCountForFeedMap) {
-		t.Errorf("Wrong number of entries in feedMap; expected %d, got %d", len(expectedChannelCountForFeedMap), len(feedMap))
-	}
-
-	for feed, channels := range feedMap {
-		if len(channels) != expectedChannelCountForFeedMap[feed] {
-			t.Errorf("Wrong number of channels associated with feed %s; expected %d got %d", feed, expectedChannelCountForFeedMap[feed], len(channels))
-		}
-	}
-}
-
-func TestMakeClientMap(t *testing.T) {
-
-	//known-good output configuration from earlier
-	o := twoFeedOutputs
-
-	channelBufferLength := 2 //we're not doing much with them, make bigger in production
-
-	channelList := make([]ChannelDetails, 0)
-
-	var variables Variables
-	variables.Vars = make(map[string]string)
-	variables.Vars["outurl"] = "wss://somwhere.nice:123"
-	variables.Vars["uuid"] = "x8786x"
-	variables.Vars["session"] = "y987y"
-	variables.Vars["otherurl"] = "wss://somwhere.great:123"
-
-	configureChannels(o, channelBufferLength, &channelList, variables)
-
-	clientMap := make(ClientMap)
-
-	configureClientMap(&channelList, clientMap)
-
-	if len(clientMap) != len(expectedChannelCountForClientMap) {
-		t.Errorf("Wrong number of entries in feedMap; expected %d, got %d", len(expectedChannelCountForClientMap), len(clientMap))
-	}
-
-	for feed, channels := range clientMap {
-		if len(channels) != expectedChannelCountForClientMap[feed] {
-			t.Errorf("Wrong number of channels associated with feed %s; expected %d got %d", feed, expectedChannelCountForClientMap[feed], len(channels))
-		}
-	}
-}
+//func TestMakeFeedMap(t *testing.T) {
+//
+//	//known-good output configuration from earlier
+//	o := twoFeedOutputs
+//
+//	channelBufferLength := 2 //we're not doing much with them, make bigger in production
+//
+//	channelList := make([]ChannelDetails, 0)
+//
+//	var variables Variables
+//	variables.Vars = make(map[string]string)
+//	variables.Vars["outurl"] = "wss://somwhere.nice:123"
+//	variables.Vars["uuid"] = "x8786x"
+//	variables.Vars["session"] = "y987y"
+//
+//	configureChannels(o, channelBufferLength, &channelList, variables)
+//
+//	feedMap := make(FeedMap)
+//
+//	configureFeedMap(&channelList, feedMap)
+//
+//	if len(feedMap) != len(expectedChannelCountForFeedMap) {
+//		t.Errorf("Wrong number of entries in feedMap; expected %d, got %d", len(expectedChannelCountForFeedMap), len(feedMap))
+//	}
+//
+//	for feed, channels := range feedMap {
+//		if len(channels) != expectedChannelCountForFeedMap[feed] {
+//			t.Errorf("Wrong number of channels associated with feed %s; expected %d got %d", feed, expectedChannelCountForFeedMap[feed], len(channels))
+//		}
+//	}
+//}
+//
+//func TestMakeClientMap(t *testing.T) {
+//
+//	//known-good output configuration from earlier
+//	o := twoFeedOutputs
+//
+//	channelBufferLength := 2 //we're not doing much with them, make bigger in production
+//
+//	channelList := make([]ChannelDetails, 0)
+//
+//	var variables Variables
+//	variables.Vars = make(map[string]string)
+//	variables.Vars["outurl"] = "wss://somwhere.nice:123"
+//	variables.Vars["uuid"] = "x8786x"
+//	variables.Vars["session"] = "y987y"
+//	variables.Vars["otherurl"] = "wss://somwhere.great:123"
+//
+//	configureChannels(o, channelBufferLength, &channelList, variables)
+//
+//	clientMap := make(ClientMap)
+//
+//	configureClientMap(&channelList, clientMap)
+//
+//	if len(clientMap) != len(expectedChannelCountForClientMap) {
+//		t.Errorf("Wrong number of entries in feedMap; expected %d, got %d", len(expectedChannelCountForClientMap), len(clientMap))
+//	}
+//
+//	for feed, channels := range clientMap {
+//		if len(channels) != expectedChannelCountForClientMap[feed] {
+//			t.Errorf("Wrong number of channels associated with feed %s; expected %d got %d", feed, expectedChannelCountForClientMap[feed], len(channels))
+//		}
+//	}
+//}

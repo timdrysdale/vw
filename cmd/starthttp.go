@@ -11,54 +11,50 @@ import (
 	"strconv"
 	"sync"
 	"time"
+
+	"github.com/gobwas/ws"
+	"github.com/google/uuid"
 )
 
-func startHttp(closed <-chan struct{}, wg *sync.WaitGroup, listen url.URL, feedmap FeedMap) {
+func startHttp(closed <-chan struct{}, wg *sync.WaitGroup, listen url.URL, opts HTTPOptions, msgChan chan message) {
 	defer wg.Done()
 
 	port, err := strconv.Atoi(listen.Port())
 	if err != nil {
 		panic("Error Converting port into int")
-
 	}
 
 	wg.Add(1)
 	fmt.Printf("\n Listening on :%d\n", port)
-	srv := startHttpServer(closed, wg, port, feedmap)
+	srv := startHttpServer(closed, wg, port, opts, msgChan)
 
-	for {
-		select {
-		case <-closed:
-			fmt.Printf("Starting to close HTTP SERVER %v\n", wg)
-			if err := srv.Shutdown(context.TODO()); err != nil {
-				log.Panicf("failure/timeout shutting down the http server gracefully: %v", err)
-			}
+	<-closed
+	fmt.Printf("Starting to close HTTP SERVER %v\n", wg)
+	if err := srv.Shutdown(context.TODO()); err != nil {
+		log.Panicf("failure/timeout shutting down the http server gracefully: %v", err)
+	}
 
-			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second) //TODO make configurable
-			defer cancel()
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second) //TODO make configurable
+	defer cancel()
 
-			srv.SetKeepAlivesEnabled(false)
-			if err := srv.Shutdown(ctx); err != nil {
-				log.Fatalf("Could not gracefully shutdown the server: %v\n", err)
-			}
-			fmt.Printf("Exiting START HTTP SERVER %v\n", wg)
-			return
-		default:
-		} // select
-	} // for
-
+	srv.SetKeepAlivesEnabled(false)
+	if err := srv.Shutdown(ctx); err != nil {
+		log.Fatalf("Could not gracefully shutdown the server: %v\n", err)
+	}
+	fmt.Printf("Exiting START HTTP SERVER %v\n", wg)
+	return
 } // startHttp
 
 //mux := http.NewServeMux()
 //mux.Handler("/request", requesthandler)
 //http.ListenAndServe(":9000", nil)
 
-func startHttpServer(closed <-chan struct{}, wg *sync.WaitGroup, port int, feedmap FeedMap) *http.Server {
+func startHttpServer(closed <-chan struct{}, wg *sync.WaitGroup, port int, opts HTTPOptions, msgChan chan message) *http.Server {
 	defer wg.Done()
 	addr := fmt.Sprintf(":%d", port)
 	srv := &http.Server{Addr: addr}
 
-	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) { muxingHandler(closed, w, r, feedmap) })
+	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) { muxingHandler(closed, w, r, opts, msgChan) })
 
 	wg.Add(1)
 	go func() {
@@ -76,79 +72,50 @@ func startHttpServer(closed <-chan struct{}, wg *sync.WaitGroup, port int, feedm
 	return srv
 }
 
-func muxingHandler(closed <-chan struct{}, w http.ResponseWriter, r *http.Request, feedmap FeedMap) {
+func muxingHandler(closed <-chan struct{}, w http.ResponseWriter, r *http.Request, opts HTTPOptions, msgChan chan message) {
+	myDetails := clientDetails{uuid.New().String()[:3], r.URL.Path, make(chan message)}
 
-	if channelSlice, ok := feedmap[r.URL.Path]; !ok {
-		fmt.Printf(`\n
----------------------------------
-Unknown stream, check config for:%s\n
---------------------------------\n`, r.URL.Path)
-		return
-	} else {
-		//receive MPEGTS in 188 byte chunks
-		//ffmpeg uses one tcp packet per frame
+	//receive MPEGTS in 188 byte chunks
+	//ffmpeg uses one tcp packet per frame
 
-		maxFrameBytes := 1024000 //TODO make configurable
-		chunkSize := 4096        //188
-		chunk := make([]byte, chunkSize)
-		frameBufferArray := make([]byte, maxFrameBytes) //owned by buffer, don't re-use
-		frameBuffer := bytes.NewBuffer(frameBufferArray)
-		frame := make([]byte, maxFrameBytes) // use for reading from frameBuffer
-		flushPeriod := 5 * time.Millisecond  //TODO make configurable
-		//statsPeriod := 1 * time.Second       //TODO make configurable
-		tickerFlush := time.NewTicker(flushPeriod)
-		//tickerStats := time.NewTicker(statsPeriod)
-		chunkCount := 0
-		frameBuffer.Reset() //else we send whole buffer on first flush
-		//mute := true
+	maxFrameBytes := 1024000                        //TODO make configurable
+	chunkSize := 188                                //4096                               //188                                //188
+	readBuf := make([]byte, chunkSize)              //maxFrameBytes)
+	frameBufferArray := make([]byte, maxFrameBytes) //owned by buffer, don't re-use
+	frameBuffer := bytes.NewBuffer(frameBufferArray)
+	frame := make([]byte, maxFrameBytes) // use for reading from frameBuffer
+	flushPeriod := 5 * time.Millisecond  //time.Duration(opts.FlushMS) * time.Millisecond
+	tickerFlush := time.NewTicker(flushPeriod)
 
-		for {
-			select {
-			case <-time.After(1 * time.Second):
-				//frameBuffer.Reset() //flush first second of video with any non-188 byte aligned header
-				//mute = false
-			case <-tickerFlush.C:
+	chunkCount := 0
+	frameBuffer.Reset() //else we send whole buffer on first flush
 
-				//flush buffer to internal send channel
-				n, err := frameBuffer.Read(frame)
+	for {
+		select {
+		case <-tickerFlush.C:
+			//flush buffer to internal send channel
 
-				if err == nil && n > 0 {
-					packet := Packet{Data: frame[:n]} //slice length is high-low
-					chunkCount = chunkCount + (n / chunkSize)
-					for _, channel := range channelSlice {
-						channel <- packet
-					} //for
-					frameBuffer.Reset()
-				} else {
-					//fmt.Printf("\nFrame buffer read error %v\n", err)
-				}
+			n, err := frameBuffer.Read(frame)
 
-			//case <-tickerStats.C:
-			// print stats
-			//fmt.Printf("\n Chunks total: %d\n", chunkCount)
-			case <-closed:
-				fmt.Printf("\nMuxHandler got closed\n")
-				return
-			default:
-				// get a chunk from the response body
-				n, err := io.ReadFull(r.Body, chunk)
-				if err == nil {
-					//	if n == 188 {
-					_, _ = frameBuffer.Write(chunk)
-					//fmt.Printf("\n%v\n", chunk)
-				}
-				if n < chunkSize {
-					time.Sleep(1 * time.Millisecond) //reduce CPU? nope.
-				}
-				//		if err != nil {
-				//			fmt.Printf("\nFailed to write chunk to frameBuffer;' only wrote %d because %v\n", n, err)
-				//		}
+			if err == nil && n > 0 {
+				chunkCount = chunkCount + (n / chunkSize)
+				msg := message{sender: myDetails, op: ws.OpBinary, data: frame[:n]}
+				msgChan <- msg
+				frameBuffer.Reset()
+			}
 
-				//	} else {
-				//		fmt.Printf("\nBad chunk, wanted %d, got %d\n", chunkSize, n)
-				//	} //if/else
-				//} //if
-			} //select
+		case <-closed:
+			fmt.Printf("\nMuxHandler got closed\n")
+			return
+
+		default:
+			// get a chunk from the response body
+			//n, err := io.ReadAtLeast(r.Body, readBuf, chunkSize)
+			n, err := io.ReadFull(r.Body, readBuf)
+			if err == nil {
+				_, _ = frameBuffer.Write(readBuf[:n]) //readBuf[:n])
+
+			}
 		}
 	}
 }

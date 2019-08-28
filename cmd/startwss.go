@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"net"
 	"sync"
 	"time"
 
@@ -12,22 +13,45 @@ import (
 	"github.com/google/uuid"
 )
 
-func startWss(closed <-chan struct{}, wg *sync.WaitGroup, clientMap ClientMap) {
+func startWss(closed <-chan struct{}, wg *sync.WaitGroup, outputs Output, clientActionsChan chan clientAction, opts ClientOptions) {
 	defer wg.Done()
-	for url, channels := range clientMap {
+	for _, stream := range outputs.Streams {
 		wg.Add(1)
 		name := "wssClient(" + uuid.New().String()[:3] + "):"
-		go wssClient(closed, wg, url, channels, name)
+		go wssClient(closed, wg, stream, name, clientActionsChan, opts)
 		log.Printf("%s spawned", name)
 	}
 }
 
-func wssClient(closed <-chan struct{}, wg *sync.WaitGroup, url string, messageChannels []chan Packet, name string) {
+//type ClientOptions struct {
+//	BufferLength int `yaml:"bufferLength"`
+//	TimeoutMS    in  `yaml:"timeoutMS"`
+//}
+
+func wssClient(closed <-chan struct{}, wg *sync.WaitGroup, stream Stream, name string, clientActionsChan chan clientAction, opts ClientOptions) {
 
 	defer wg.Done()
-	const timeout = 1000 * time.Millisecond //TODO make configurable
+	timeout := time.Duration(opts.TimeoutMS) * time.Millisecond //TODO make configurable
+	//flipflop := true
+	//subscribe this new client to the topic associated with each input name
+	messagesForMe := make(chan message, opts.BufferLength)
+
+	fmt.Printf("\nStream.InputNames %s", stream.InputNames)
+
+	for i, input := range stream.InputNames {
+
+		client := clientDetails{name: name, topic: input, messagesChan: messagesForMe}
+		fmt.Printf("\n%d: %s subscribing to %s\n", i, name, input)
+		clientActionsChan <- clientAction{action: clientAdd, client: client}
+
+		defer func() {
+			clientActionsChan <- clientAction{action: clientDelete, client: client}
+			fmt.Printf("Disconnected %v, deleting from topics\n", client)
+		}()
+	}
 
 	for {
+		url := stream.Destination
 		fmt.Printf("%s dialing %s\n", name, url) //TODO revert to log
 		ctx, cancel := context.WithTimeout(context.Background(), timeout)
 		defer cancel()
@@ -41,14 +65,7 @@ func wssClient(closed <-chan struct{}, wg *sync.WaitGroup, url string, messageCh
 			select {
 			case <-time.After(timeout):
 			case <-closed:
-				fmt.Printf("wssClient detected closed\n")
-				err = conn.Close()
-				if err != nil {
-					log.Printf("%s can not close: %v", name, err)
-				} else {
-					log.Printf("%s closed\n", name)
-				}
-				fmt.Printf("wssClient has closed\n")
+				closeConn(conn, name)
 				return
 			}
 
@@ -58,43 +75,32 @@ func wssClient(closed <-chan struct{}, wg *sync.WaitGroup, url string, messageCh
 
 			for {
 				select {
-
 				case <-closed:
-					fmt.Printf("wssClient detected closed\n")
-					err = conn.Close()
-					if err != nil {
-						log.Printf("%s can not close: %v", name, err)
-					} else {
-						log.Printf("%s closed\n", name)
-					}
-					fmt.Printf("wssClient has closed\n")
+					closeConn(conn, name)
 					return
-				default:
-					//fmt.Printf("%s ready to start sending messages\n", name)
-					for _, channel := range messageChannels {
-						select {
-						case packet := <-channel:
-
-							err := wsutil.WriteClientMessage(conn, ws.OpBinary, packet.Data)
-							//fmt.Printf("\n%s sent %d bytes\n", name, len(packet.Data))
-							if err != nil {
-								log.Printf("%s send error: %v", name, err)
-							}
-						case <-closed:
-							fmt.Printf("wssClient detected closed\n")
-							err := conn.Close()
-							if err != nil {
-								log.Printf("%s can not close: %v", name, err)
-							} else {
-								log.Printf("%s closed\n", name)
-							}
-							fmt.Printf("wssClient has closed\n")
-						default: //case <-time.After(10 * time.Microsecond):
-
-						}
+				case msg := <-messagesForMe:
+					//if flipflop == true {
+					err := wsutil.WriteClientMessage(conn, ws.OpBinary, msg.data)
+					//fmt.Printf("\n%s sent %d bytes\n", name, len(msg.data))
+					if err != nil {
+						log.Printf("%s send error: %v", name, err)
 					}
+
+					//}
+					//flipflop = !flipflop
+
 				}
 			}
 		}
 	}
+}
+
+func closeConn(conn net.Conn, name string) {
+	err := conn.Close()
+	if err != nil {
+		log.Printf("%s can not close: %v", name, err)
+	} else {
+		log.Printf("%s closed\n", name)
+	}
+
 }

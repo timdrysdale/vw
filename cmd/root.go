@@ -46,18 +46,19 @@ var rootCmd = &cobra.Command{
 	Short: "VW video websockets transporter",
 	Long:  `VW initialises video and audio captures by syscall, receiving streams via http to avoid pipe latency issues, then forwards combinations of those streams to websocket servers`,
 	Run: func(cmd *cobra.Command, args []string) {
-		var captureCommands Commands
-		var outputs Output
-		var variables Variables
+
 		var wg sync.WaitGroup
 		wg.Add(3)
 
-		channelBufferLength := 10 //TODO make configurable
-		channelList := make([]ChannelDetails, 0)
+		//channelBufferLength := 10 //TODO make configurable
+		if viper.IsSet("mux.bufferLength") {
+			channelBufferLength = viper.GetInt("mux.bufferLength")
+		}
+		//channelList := make([]ChannelDetails, 0)
 		channelSignal := make(chan os.Signal, 1)
-		clientMap := make(ClientMap)
+		//clientMap := make(ClientMap) //TODO - delete
 		closed := make(chan struct{})
-		feedMap := make(FeedMap)
+		//feedMap := make(FeedMap) //TODO - delete
 
 		signal.Notify(channelSignal, os.Interrupt)
 
@@ -111,8 +112,9 @@ var rootCmd = &cobra.Command{
 			}
 		}
 
-		listen = fmt.Sprintf("http://127.0.0.1:%d", port)
+		fmt.Println(port)
 
+		var outputs Output
 		err := viper.Unmarshal(&outputs)
 		if err != nil {
 			log.Fatalf("Viper unmarshal outputs failed: %v", err)
@@ -120,21 +122,21 @@ var rootCmd = &cobra.Command{
 
 		populateInputNames(&outputs)
 
-		err = viper.Unmarshal(&outputs)
-		if err != nil {
-			log.Fatalf("Viper unmarshal outputs failed: %v", err)
-		}
+		var variables Variables
+		variables.Vars = viper.GetStringMapString("variables")
 
-		err = viper.Unmarshal(&variables)
-		if err != nil {
-			log.Fatalf("Viper unmarshal variables failed: %v", err)
-		}
-		configureChannels(outputs, channelBufferLength, &channelList, variables)
+		var captureCommands Commands
 
-		configureFeedMap(&channelList, feedMap)
+		listen = fmt.Sprintf("http://127.0.0.1:%d", port)
 
-		configureClientMap(&channelList, clientMap)
-		fmt.Printf("\nClient Map:\n%v\n", clientMap)
+		fmt.Printf("Vars: %v\n", variables)
+		fmt.Printf("Vars via viper: %v\n", viper.Get("variables"))
+		//configureChannels(outputs, channelBufferLength, &channelList, variables)
+
+		//configureFeedMap(&channelList, feedMap)
+
+		//configureClientMap(&channelList, clientMap)
+		//fmt.Printf("\nClient Map:\n%v\n", clientMap)
 
 		h := getHost()
 
@@ -146,15 +148,54 @@ var rootCmd = &cobra.Command{
 		}
 
 		expandCaptureCommands(&captureCommands, endpoints, variables)
+		var topics topicDirectory
+		topics.directory = make(map[string][]clientDetails)
+		clientActionsChan := make(chan clientAction)
+		messagesToDistribute := make(chan message, channelBufferLength)
 
-		go startHttp(closed, &wg, *h, feedMap)
+		httpOpts := HTTPOptions{Port: 8080, WaitMS: 5000, FlushMS: 5, TimeoutMS: 1000}
 
-		go startWss(closed, &wg, clientMap)
+		if viper.IsSet("http.port") {
+			httpOpts.Port = viper.GetInt("http.port")
+		}
+		if viper.IsSet("http.waitMS") {
+			httpOpts.WaitMS = viper.GetInt("http.waitMS")
+		}
+		if viper.IsSet("http.flushMS") {
+			httpOpts.FlushMS = viper.GetInt("http.flushMS")
+		}
+		if viper.IsSet("http.timeoutMS") {
+			httpOpts.TimeoutMS = viper.GetInt("http.timeoutMS")
+		}
+
+		fmt.Printf("http: %v\n", httpOpts)
+
+		go startHttp(closed, &wg, *h, httpOpts, messagesToDistribute)
+
+		expandDestinations(&outputs, variables)
+
+		fmt.Printf("\nOutputs:\n%v\n", outputs)
+
+		clientOpts := ClientOptions{BufferLength: 10, TimeoutMS: 1000}
+
+		if viper.IsSet("client.BufferLength") {
+			clientOpts.BufferLength = viper.GetInt("client.BufferLength")
+		}
+		if viper.IsSet("client.TimeoutMS") {
+			clientOpts.TimeoutMS = viper.GetInt("client.TimeoutMS")
+		}
+		fmt.Printf("client: %v\n", clientOpts)
+
+		go startWss(closed, &wg, outputs, clientActionsChan, clientOpts)
 
 		// TODO wait until the http server is up - maybe send a test response? or have it signal on a channel?
 		time.Sleep(1000 * time.Millisecond)
 
 		go runCaptureCommands(closed, &wg, captureCommands)
+
+		wg.Add(2)
+		go HandleMessages(closed, &wg, &topics, messagesToDistribute)
+		go HandleClients(closed, &wg, &topics, clientActionsChan)
 
 		wg.Wait()
 		time.Sleep(time.Second)
