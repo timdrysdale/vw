@@ -92,38 +92,60 @@ func expandDestination(destination string, variables Variables) string {
 	return destination
 }
 
-func configureChannels(o Output, channelBufferLength int, channelList *[]ChannelDetails, variables Variables) {
-	for _, stream := range o.Streams {
-		for _, feed := range stream.InputNames {
-			newChannel := make(chan Packet, channelBufferLength)
-			destination := expandDestination(stream.Destination, variables)
-			newChannelDetails := ChannelDetails{Channel: newChannel, Feed: feed, Destination: destination}
-			*channelList = append(*channelList, newChannelDetails)
-		}
+func expandDestinations(o *Output, v Variables) {
+
+	for i, stream := range o.Streams {
+		o.Streams[i].Destination = expandDestination(stream.Destination, v)
+		fmt.Println(expandDestination(stream.Destination, v))
 	}
+	fmt.Printf("Vars: %v", v.Vars)
 }
 
-func configureFeedMap(channelList *[]ChannelDetails, feedMap FeedMap) {
+//type HTTPOptions struct {
+//	Port      int `yaml:"port"`
+//	WaitMS    int `yaml:"waitMS"`
+//	FlushMS   int `yaml:"flushMS"`
+//	TimeoutMS int `yaml:"timeoutMS"`
+//}
+//		err = viper.Unmarshal(&httpOpts)
+//		if err != nil {
+//			log.Fatalf("Viper unmarshal commands failed: %v", err)
+//		}
+//
+//
 
-	for _, channel := range *channelList {
-		if _, ok := feedMap[channel.Feed]; ok {
-			feedMap[channel.Feed] = append(feedMap[channel.Feed], channel.Channel)
-		} else {
-			feedMap[channel.Feed] = []chan Packet{channel.Channel}
-		}
-	}
-}
-
-func configureClientMap(channelList *[]ChannelDetails, clientMap ClientMap) {
-
-	for _, channel := range *channelList {
-		if _, ok := clientMap[channel.Destination]; ok {
-			clientMap[channel.Destination] = append(clientMap[channel.Destination], channel.Channel)
-		} else {
-			clientMap[channel.Destination] = []chan Packet{channel.Channel}
-		}
-	}
-}
+//func configureChannels(o Output, channelBufferLength int, channelList *[]ChannelDetails, variables Variables) {
+//	for _, stream := range o.Streams {
+//		for _, feed := range stream.InputNames {
+//			newChannel := make(chan Packet, channelBufferLength)
+//			destination := expandDestination(stream.Destination, variables)
+//			newChannelDetails := ChannelDetails{Channel: newChannel, Feed: feed, Destination: destination}
+//			*channelList = append(*channelList, newChannelDetails)
+//		}
+//	}
+//}
+//
+//func configureFeedMap(channelList *[]ChannelDetails, feedMap FeedMap) {
+//
+//	for _, channel := range *channelList {
+//		if _, ok := feedMap[channel.Feed]; ok {
+//			feedMap[channel.Feed] = append(feedMap[channel.Feed], channel.Channel)
+//		} else {
+//			feedMap[channel.Feed] = []chan Packet{channel.Channel}
+//		}
+//	}
+//}
+//
+//func configureClientMap(channelList *[]ChannelDetails, clientMap ClientMap) {
+//
+//	for _, channel := range *channelList {
+//		if _, ok := clientMap[channel.Destination]; ok {
+//			clientMap[channel.Destination] = append(clientMap[channel.Destination], channel.Channel)
+//		} else {
+//			clientMap[channel.Destination] = []chan Packet{channel.Channel}
+//		}
+//	}
+//}
 
 func getHost() *url.URL {
 	//get a free port

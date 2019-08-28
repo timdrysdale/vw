@@ -52,8 +52,6 @@ func runCommand(closed <-chan struct{}, wg *sync.WaitGroup, command string) {
 
 		case <-finished:
 			return
-
-		default:
 		}
 
 	}

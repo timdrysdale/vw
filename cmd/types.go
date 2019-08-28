@@ -42,7 +42,8 @@ type Variables struct {
 }
 
 type ClientOptions struct {
-	BufferSize int `yaml:"bufferSize"`
+	BufferLength int `yaml:"bufferLength"`
+	TimeoutMS    int `yaml:"timeoutMS"`
 }
 
 type MuxOptions struct {
@@ -51,8 +52,10 @@ type MuxOptions struct {
 }
 
 type HTTPOptions struct {
-	Port   int `yaml:"port"`
-	WaitMS int `yaml:"waitMS"`
+	Port      int `yaml:"port"`
+	WaitMS    int `yaml:"waitMS"`
+	FlushMS   int `yaml:"flushMS"`
+	TimeoutMS int `yaml:"timeoutMS"`
 }
 
 // Types from crossbar

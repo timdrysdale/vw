@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"fmt"
 	"sync"
 )
 
@@ -37,6 +38,8 @@ func addClientToTopic(topics *topicDirectory, client clientDetails) {
 		topics.directory[client.topic] = append(topics.directory[client.topic], client)
 		topics.Unlock()
 	}
+
+	fmt.Printf("Topics: %v\n", topics)
 
 }
 
