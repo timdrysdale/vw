@@ -22,16 +22,6 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var cfgFile string
-var listen string
-var output Output
-var inputChannels = make(map[string]chan Packet)
-var inputAddresses = make(map[string]string)
-var channelList []ChannelDetails
-var channelBufferLength int
-var cpuprofile string
-var memprofile string
-
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
 	Use:   "vw",
