@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"context"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"net/url"
@@ -87,10 +88,13 @@ func muxingHandler(closed <-chan struct{}, w http.ResponseWriter, r *http.Reques
 	//frameBuffer.b = bytes.NewBuffer(frameBufferArray)
 	//frameBuffer.mux.Unlock()
 
-	rawFrame := make([]byte, maxFrameBytes) // use for reading from frameBuffer
+	rawFrame := make([]byte, maxFrameBytes)
+
+	glob := make([]byte, maxFrameBytes)
+	// use for reading from frameBuffer
 	//flushPeriod := 2 * time.Millisecond     //time.Duration(opts.FlushMS) * time.Millisecond
 	//tickerFlush := time.NewTicker(flushPeriod)
-	syncTS := byte('G')
+	//syncTS := byte('G')
 
 	frameBuffer.b.Reset() //else we send whole buffer on first flush
 
@@ -113,22 +117,22 @@ func muxingHandler(closed <-chan struct{}, w http.ResponseWriter, r *http.Reques
 	//after 23.976µs got 49 bytes
 
 	go func() {
-		last := time.Now()
+		//last := time.Now()
 		for {
-			tCh <- 0 //kick the monitoring routine
-			glob, err := reader.ReadBytes(syncTS)
-			t := time.Now()
-			fmt.Printf("after %v got %d bytes\n", t.Sub(last), len(glob))
-			last = t
+			tCh <- 0                                  //kick the monitoring routine
+			n, err := io.ReadAtLeast(reader, glob, 1) //reader.ReadBytes(syncTS)
+			//t := time.Now()
+			//fmt.Printf("after %v got %d bytes\n", t.Sub(last), len(glob))
+			//last = t
 
 			if err == nil {
 				frameBuffer.mux.Lock()
-				err = frameBuffer.b.WriteByte(syncTS)
-				if err != nil {
-					log.Fatalf("%v", err)
-					return
-				}
-				_, err = frameBuffer.b.Write(glob[:len(glob)-1]) //trim the trailing sync
+				//err = frameBuffer.b.WriteByte(syncTS)
+				//if err != nil {
+				//	log.Fatalf("%v", err)
+				//	return
+				//}
+				_, err = frameBuffer.b.Write(glob[:n]) //:len(glob)-1]) //trim the trailing sync
 				frameBuffer.mux.Unlock()
 				if err != nil {
 					log.Fatalf("%v", err)
