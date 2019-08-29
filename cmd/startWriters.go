@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"encoding/hex"
 	"fmt"
 	"log"
 	"os"
@@ -24,11 +23,11 @@ func writerClient(closed <-chan struct{}, wg *sync.WaitGroup, writer Writer, nam
 	//debugDelimiter provides an unambiguous marker in the packet stream, being a packet you would not expect to see ordinarily
 	//Thus SYNC,Transport Error Indicator,ReservedPID of 15,Adaptation Byte Only,No Extra Fields, Discontinuity state
 	//https://en.wikipedia.org/wiki/MPEG_transport_stream#Packet_identifier_(PID)
-	debugDelimiter, err := hex.DecodeString("47800f200080")
-	if err != nil {
-		fmt.Printf("ERROR: debugDelimeter in startwriter.go/writerClient() is bad\n")
-	}
-
+	debugDelimiter := []byte("<TIMOTHY>") //hex.DecodeString("47800f200080")
+	//if err != nil {
+	//	fmt.Printf("ERROR: debugDelimeter in startwriter.go/writerClient() is bad\n")
+	//}
+	//
 	defer wg.Done()
 	messagesForMe := make(chan message, 10)
 
