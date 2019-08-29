@@ -79,22 +79,12 @@ func muxingHandler(closed <-chan struct{}, w http.ResponseWriter, r *http.Reques
 	//ffmpeg uses one tcp packet per frame
 
 	maxFrameBytes := 1024000 //TODO make configurable
-	//chunkSize := 188         //4096                               //188                                //188
-	//frameBufferArray := make([]byte, maxFrameBytes) //owned by buffer, don't re-use
-	//frameBuffer := bytes.NewBuffer(frameBufferArray)
 
 	var frameBuffer mutexBuffer
-	//frameBuffer.mux.Lock()
-	//frameBuffer.b = bytes.NewBuffer(frameBufferArray)
-	//frameBuffer.mux.Unlock()
 
 	rawFrame := make([]byte, maxFrameBytes)
 
 	glob := make([]byte, maxFrameBytes)
-	// use for reading from frameBuffer
-	//flushPeriod := 2 * time.Millisecond     //time.Duration(opts.FlushMS) * time.Millisecond
-	//tickerFlush := time.NewTicker(flushPeriod)
-	//syncTS := byte('G')
 
 	frameBuffer.b.Reset() //else we send whole buffer on first flush
 
@@ -102,6 +92,7 @@ func muxingHandler(closed <-chan struct{}, w http.ResponseWriter, r *http.Reques
 
 	tCh := make(chan int)
 
+	//Method for detecting packet boundaries: identify empty buffer via delay on reading a byte
 	//after 13.738µs got 188 bytes
 	//after 13.027µs got 120 bytes
 	//after 13.883µs got 68 bytes
@@ -116,33 +107,38 @@ func muxingHandler(closed <-chan struct{}, w http.ResponseWriter, r *http.Reques
 	//after 23.267µs got 101 bytes
 	//after 23.976µs got 49 bytes
 
+	// Read from the buffer, blocking if empty
 	go func() {
-		//last := time.Now()
+
 		for {
-			tCh <- 0                                  //kick the monitoring routine
-			n, err := io.ReadAtLeast(reader, glob, 1) //reader.ReadBytes(syncTS)
-			//t := time.Now()
-			//fmt.Printf("after %v got %d bytes\n", t.Sub(last), len(glob))
-			//last = t
+
+			tCh <- 0 //kick the monitoring routine
+
+			n, err := io.ReadAtLeast(reader, glob, 1)
 
 			if err == nil {
+
 				frameBuffer.mux.Lock()
-				//err = frameBuffer.b.WriteByte(syncTS)
-				//if err != nil {
-				//	log.Fatalf("%v", err)
-				//	return
-				//}
-				_, err = frameBuffer.b.Write(glob[:n]) //:len(glob)-1]) //trim the trailing sync
+
+				_, err = frameBuffer.b.Write(glob[:n])
+
 				frameBuffer.mux.Unlock()
+
 				if err != nil {
 					log.Fatalf("%v", err)
 					return
 				}
+
 			} else {
+
 				select {
+
 				case <-closed:
+
 					return //game over if closed
+
 				default:
+
 					// try again in case it's recoverable
 				}
 			}
@@ -150,62 +146,27 @@ func muxingHandler(closed <-chan struct{}, w http.ResponseWriter, r *http.Reques
 	}()
 
 	for {
+
 		select {
+
 		case <-tCh:
+
 			// do nothing, just received data from buffer
+
 		case <-time.After(1 * time.Millisecond):
 			// no new data for >= 1mS weakly implies frame has been fully sent to us
+			// this is two orders of magnitude more delay than when reading from
+			// non-empty buffer so _should_ be ok, but recheck if errors crop up on
+			// lower powered system. Assume am on same computer as capture routine
+
 			//flush buffer to internal send channel
 			frameBuffer.mux.Lock()
+
 			n, err := frameBuffer.b.Read(rawFrame)
 
-			frame := rawFrame[:n] //append([]byte{syncTS}, rawFrame[:n]...)
-			/*
-				offsetFrequency := make(map[int]int) //map of frequency of implied offset of first sync
-				for i, char := range frame[:n] {
-					if char == syncTS {
-						impliedOffset := i % chunkSize
-						if val, ok := offsetFrequency[impliedOffset]; ok {
-							offsetFrequency[impliedOffset] = val + 1
-						} else {
-							offsetFrequency[impliedOffset] = 1
-						}
-					}
-				}
-				estimatedOffset := 0
-				estimatedFrequency := 0
-				for offset, frequency := range offsetFrequency {
-					if frequency > estimatedFrequency {
-						estimatedFrequency = frequency
-						estimatedOffset = offset
-					}
-				}
+			frame := rawFrame[:n]
 
-				//if estimatedOffset == 187 { //we're missing the first sync
-				//
-				//	outframe = append([]byte{syncTS}, frame[:n]...)
-				//	estimatedOffset = 0
-				//}
-
-				potentiallyReady := n + 1 - estimatedOffset
-				trimFromEnd := potentiallyReady % chunkSize
-
-				forNextFrame := frame[(n + 1 - trimFromEnd):(n + 1)]
-				forThisFrame := frame[estimatedOffset:(n + 1 - trimFromEnd)]
-				//fmt.Printf("-------------------------------------------------------------------------------------------")
-				//fmt.Printf("FrameSize: %d, skipped: %d, forNextFrame: %d", n, estimatedOffset, len(forNextFrame))
-				//fmt.Printf("offset: %d, trim %d\n", estimatedOffset, trimFromEnd)
-				//fmt.Printf("\n%v\n", offsetFrequency)
-				//fmt.Printf("Chunks this write: %d\n", (n+1-estimatedOffset-trimFromEnd)/chunkSize)
-				//fmt.Printf("First chars are: %v\n", frame[0])
-				//fmt.Printf("Trimmed chars are: %v\n", forNextFrame)
-				//check
-				if len(forThisFrame)%188 != 0 {
-					fmt.Printf("Frame length not have integral multiple of chunk size\n")
-				}
-			*/
 			frameBuffer.b.Reset()
-			//frameBuffer.b.Write(forNextFrame)
 
 			frameBuffer.mux.Unlock()
 
