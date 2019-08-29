@@ -14,9 +14,19 @@ import (
 	"github.com/spf13/viper"
 )
 
+var cfgFile string
+var listen string
+var output Output
+var inputChannels = make(map[string]chan Packet)
+var inputAddresses = make(map[string]string)
+var channelList []ChannelDetails
+var channelBufferLength int
+var cpuprofile string
+var memprofile string
+
 func init() {
 
-	cobra.OnInitialize(initConfig)
+	//cobra.OnInitialize(initConfig)
 
 	rootCmd.AddCommand(streamCmd)
 
@@ -30,7 +40,8 @@ var streamCmd = &cobra.Command{
 	Short: "stream video",
 	Long:  `capture video incoming to http and stream out over websockets`,
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("Hugo Static Site Generator v0.9 -- HEAD")
+
+		initConfig()
 
 		var wg sync.WaitGroup
 

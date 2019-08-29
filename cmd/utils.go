@@ -33,3 +33,9 @@ func filterClients(clients []clientDetails, filter clientDetails) []clientDetail
 	}
 	return filteredClients
 }
+
+func check(e error) {
+	if e != nil {
+		panic(e)
+	}
+}
