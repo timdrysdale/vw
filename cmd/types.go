@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"bytes"
 	"sync"
 
 	"github.com/gobwas/ws"
@@ -109,4 +110,9 @@ type readClientDataReturns struct {
 	msg []byte
 	op  ws.OpCode
 	err error
+}
+
+type mutexBuffer struct {
+	mux sync.Mutex
+	b   bytes.Buffer
 }
