@@ -1,7 +1,7 @@
 --- 
 commands: 
   - "curl  --request POST --data-binary @bin.dat ${binarydata}"
-outurl: "ws://127.0.0.1:43001"
+outurl: "ws://127.0.0.1:38455"
 session: 7525cb39-554e-43e1-90ed-3a97e8d1c6bf
 uuid: 49270598-9da2-4209-98da-e559f0c587b4
 streams: 
