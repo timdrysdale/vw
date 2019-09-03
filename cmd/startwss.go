@@ -1,16 +1,12 @@
 package cmd
 
 import (
-	"context"
 	"fmt"
 	"log"
-	"net"
 	"sync"
-	"time"
 
-	"github.com/gobwas/ws"
-	"github.com/gobwas/ws/wsutil"
 	"github.com/google/uuid"
+	"github.com/gorilla/websocket"
 )
 
 func startWss(closed <-chan struct{}, wg *sync.WaitGroup, outputs Output, clientActionsChan chan clientAction, opts ClientOptions) {
@@ -23,11 +19,78 @@ func startWss(closed <-chan struct{}, wg *sync.WaitGroup, outputs Output, client
 	}
 }
 
-//type ClientOptions struct {
-//	BufferLength int `yaml:"bufferLength"`
-//	TimeoutMS    in  `yaml:"timeoutMS"`
-//}
+func wssClient(closed <-chan struct{}, wg *sync.WaitGroup, stream Stream, name string, clientActionsChan chan clientAction, opts ClientOptions) {
 
+	log.Printf("connecting to %s", stream.Destination)
+
+	c, _, err := websocket.DefaultDialer.Dial(stream.Destination, nil)
+	if err != nil {
+		log.Fatal("dial:", err)
+	}
+	defer c.Close()
+
+	done := make(chan struct{})
+
+	go func() {
+		defer close(done)
+		for {
+			//silently drop messages
+			_, _, err := c.ReadMessage()
+			if err != nil {
+				log.Printf("read:%v", err)
+				return
+			}
+
+		}
+	}()
+
+	messagesForMe := make(chan message, opts.BufferLength)
+
+	log.Printf("\nStream.InputNames %s", stream.InputNames)
+
+	for i, input := range stream.InputNames {
+
+		client := clientDetails{name: name, topic: input, messagesChan: messagesForMe}
+		fmt.Printf("\n%d: %s subscribing to %s\n", i, name, input)
+		clientActionsChan <- clientAction{action: clientAdd, client: client}
+
+		defer func() {
+			clientActionsChan <- clientAction{action: clientDelete, client: client}
+			fmt.Printf("Disconnected %v, deleting from topics\n", client)
+		}()
+	}
+
+	for {
+		select {
+		case <-done:
+			return
+
+		case msg := <-messagesForMe:
+
+			err := c.WriteMessage(websocket.BinaryMessage, msg.data)
+			if err != nil {
+				log.Println("write:", err)
+				return
+			}
+		case <-closed:
+			log.Println("interrupt")
+
+			// Cleanly close the connection by sending a close message and then
+			// waiting (with timeout) for the server to close the connection.
+			err := c.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""))
+			if err != nil {
+				log.Println("write close:", err)
+				return
+			}
+			select {
+			case <-done:
+			}
+			return
+		}
+	}
+}
+
+/*
 func wssClient(closed <-chan struct{}, wg *sync.WaitGroup, stream Stream, name string, clientActionsChan chan clientAction, opts ClientOptions) {
 
 	defer wg.Done()
@@ -104,3 +167,4 @@ func closeConn(conn net.Conn, name string) {
 	}
 
 }
+*/
