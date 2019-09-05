@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"fmt"
-	"log"
 	"net/http"
 	"net/url"
 	"strings"
@@ -11,6 +10,7 @@ import (
 	"github.com/gobwas/ws"
 	"github.com/gobwas/ws/wsutil"
 	"github.com/google/uuid"
+	log "github.com/sirupsen/logrus"
 )
 
 func HandleConnections(closed <-chan struct{}, wg *sync.WaitGroup, clientActionsChan chan clientAction, messagesFromMe chan message, host *url.URL) {
@@ -26,7 +26,7 @@ func HandleConnections(closed <-chan struct{}, wg *sync.WaitGroup, clientActions
 		conn, _, _, err := HTTPUpgrader.Upgrade(r, w)
 
 		if err != nil {
-			log.Fatalf("WS upgrade failed because %v\n", err)
+			log.WithField("error", err).Error("WS upgrade failed")
 			return
 		}
 
@@ -85,7 +85,7 @@ func HandleConnections(closed <-chan struct{}, wg *sync.WaitGroup, clientActions
 	}) //end of fun definition
 
 	addr := strings.Join([]string{host.Hostname(), ":", host.Port()}, "")
-	log.Printf("Starting listener on %s\n", addr)
+	log.WithField("addr", addr).Info("Starting listener")
 	err := http.ListenAndServe(addr, fn)
 	if err != nil {
 		log.Fatal(err)

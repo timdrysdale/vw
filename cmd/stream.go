@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"fmt"
-	"log"
 	"os"
 	"os/signal"
 	"runtime/pprof"
@@ -12,6 +11,8 @@ import (
 	"github.com/phayes/freeport"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+
+	log "github.com/sirupsen/logrus"
 )
 
 var cfgFile string
@@ -33,10 +34,22 @@ func init() {
 	streamCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.vw.yaml)")
 	streamCmd.PersistentFlags().StringVarP(&cpuprofile, "cpuprofile", "p", "", "write cpu profile to `file`")
 	streamCmd.PersistentFlags().StringVarP(&memprofile, "memprofile", "m", "", "write memory profile to `file`")
+
+	// Log as JSON instead of the default ASCII formatter.
+	log.SetFormatter(&log.JSONFormatter{})
+
+	// Output to stdout instead of the default stderr
+	// Can be any io.Writer, see below for File example
+	log.SetOutput(os.Stdout)
+
+	// Only log the warning severity or above.
+	log.SetLevel(log.DebugLevel)
+
 }
 
 var streamCmd = &cobra.Command{
-	Use:   "stream",
+	Use: "stream",
+
 	Short: "stream video",
 	Long:  `capture video incoming to http and stream out over websockets`,
 	Run: func(cmd *cobra.Command, args []string) {
