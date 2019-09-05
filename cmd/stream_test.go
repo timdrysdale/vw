@@ -127,3 +127,12 @@ func wsReceiver(port int, t *testing.T) {
 		}
 	}))
 }
+
+//func TestStreamFail( t *testing.T){
+//
+// //start sending a stream, then cause websocket to die
+// //
+//
+//
+//
+//}
