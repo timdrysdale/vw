@@ -21,11 +21,13 @@ func startWss(closed <-chan struct{}, wg *sync.WaitGroup, outputs Output, client
 
 func wssClient(closed <-chan struct{}, wg *sync.WaitGroup, stream Stream, name string, clientActionsChan chan clientAction, opts ClientOptions) {
 
+	defer wg.Done()
+
 	log.WithField("To", stream.Destination).Info("Connecting")
 
 	c, _, err := websocket.DefaultDialer.Dial(stream.Destination, nil)
 	if err != nil {
-		log.WithField("error", err).Error("Dialing")
+		log.WithField("error", err).Fatal("Dialing")
 		return //TODO is this fatal?
 	}
 	defer c.Close()
@@ -57,7 +59,7 @@ func wssClient(closed <-chan struct{}, wg *sync.WaitGroup, stream Stream, name s
 
 		defer func() {
 			clientActionsChan <- clientAction{action: clientDelete, client: client}
-			log.WithField("name", name).Warn("Disconnected")
+			log.WithField("name", name).Fatal("Disconnected")
 		}()
 	}
 
@@ -70,7 +72,7 @@ func wssClient(closed <-chan struct{}, wg *sync.WaitGroup, stream Stream, name s
 
 			err := c.WriteMessage(websocket.BinaryMessage, msg.data)
 			if err != nil {
-				log.WithField("error", err).Error("Writing")
+				log.WithField("error", err).Fatal("Writing")
 				return
 			}
 		case <-closed:
@@ -80,7 +82,7 @@ func wssClient(closed <-chan struct{}, wg *sync.WaitGroup, stream Stream, name s
 			// waiting (with timeout) for the server to close the connection.
 			err := c.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""))
 			if err != nil {
-				log.WithField("error", err).Warn("Closing")
+				log.WithField("error", err).Info("Closing")
 				return
 			}
 			select {
