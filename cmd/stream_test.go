@@ -14,6 +14,7 @@ import (
 
 	"github.com/gobwas/ws"
 	"github.com/gobwas/ws/wsutil"
+	"github.com/gorilla/websocket"
 	"github.com/phayes/freeport"
 )
 
@@ -29,7 +30,13 @@ streams:
         - binarydata
 `
 
-func TestZRoot(t *testing.T) {
+var upgrader = websocket.Upgrader{}
+
+func TestStream(t *testing.T) {
+
+	if testing.Short() {
+		t.Skip("skipping integration test")
+	}
 
 	cmd := exec.Command("rm", "./bin.dat")
 	err := cmd.Run()
@@ -51,7 +58,7 @@ func TestZRoot(t *testing.T) {
 	go func() {
 		//give wsReceiver a chance to start
 		time.Sleep(100 * time.Millisecond)
-		Execute()
+		streamCmd.Execute()
 	}()
 
 	go wsReceiver(port, t)

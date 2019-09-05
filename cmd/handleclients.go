@@ -1,8 +1,10 @@
 package cmd
 
 import (
-	"fmt"
 	"sync"
+
+	"github.com/davecgh/go-spew/spew"
+	log "github.com/sirupsen/logrus"
 )
 
 func HandleClients(closed <-chan struct{}, wg *sync.WaitGroup, topics *topicDirectory, clientActionsChan chan clientAction) {
@@ -39,7 +41,7 @@ func addClientToTopic(topics *topicDirectory, client clientDetails) {
 		topics.Unlock()
 	}
 
-	fmt.Printf("Topics: %v\n", topics)
+	log.WithField("topics", spew.Sdump(topics)).Trace("Topics")
 
 }
 
