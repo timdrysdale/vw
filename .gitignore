@@ -7,6 +7,8 @@
 \#*
 .\#*
 *~
+vw
+./cmd/bin.dat
 # Test binary, build with `go test -c`
 *.test
 
