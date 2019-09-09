@@ -46,8 +46,8 @@ Compiles and runs the core code, but I had issues trying to get ```dshow``` to w
 
 ```vw``` has been successfully cross-compiled and used with the aarch64 ARM achitecture of the Odroid N2, running an Ubuntu 18.04.2 LTS flavour linux with kernal version 4.9.1622-22.
 
-		 $ GOOS = linux
-		 $ GOARCH = arm64
+		 $ export GOOS = linux
+		 $ export GOARCH = arm64
 		 $ go build
 
 Note that on this architecture, ```cmd.process.kill()``` is currently suspected of hanging, so cannot exit cleanly with Ctrl-C and instead need to Ctrl-Z and then ```pkill -9 vw``` to clean up defunct processes that are holding onto webcams. Note that ```pkill``` is installed with 
@@ -112,6 +112,8 @@ Things can get a bit more tricky if you are using ```ffmpeg``` within a docker c
 
 ## Other features
 
+### Write to file
+
 Stream writers can be configured by adding 
 
     writers:
@@ -123,6 +125,16 @@ At present, it is an error to specify an existing file. This behaviour was adopt
 
 Writing to disk is accomplished in a separate go-routine to avoid introducing variable latency in the network messaging. There is no attention paid to respecting available disk space because it is expected that the write feature will be used sparingly, and not routinely while serving (see future features).
 
+### Exit on capture failure
+
+Monitors can be configured to exit ```vw``` if a specified capture stream(s) fails (currently hardwired as no frames for two seconds), as an aid to using conventional process monitoring tools:
+
+    monitor
+      - video0
+
+
+ISSUE: note that on odroid this feature is not yet working properly due to the issue with killing processes
+ 
 ## Future features
 
 These are notes to me of possible features to consider, rather than promises to implement
