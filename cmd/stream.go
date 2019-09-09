@@ -183,7 +183,10 @@ var streamCmd = &cobra.Command{
 		fmt.Printf("http: %v\n", httpOpts)
 
 		wg.Add(1)
-		go startHttp(closed, &wg, *h, httpOpts, messagesToDistribute)
+
+		httpRunning := make(chan struct{})
+
+		go startHttp(closed, &wg, *h, httpOpts, messagesToDistribute, httpRunning)
 
 		expandDestinations(&outputs, variables)
 
@@ -206,7 +209,9 @@ var streamCmd = &cobra.Command{
 		go startWriters(closed, &wg, writers, clientActionsChan)
 
 		// TODO wait until the http server is up - maybe send a test response? or have it signal on a channel?
-		time.Sleep(1000 * time.Millisecond)
+		//time.Sleep(1000 * time.Millisecond)
+
+		<-httpRunning //wait for http server to start
 
 		wg.Add(1)
 		go runCaptureCommands(closed, &wg, captureCommands)

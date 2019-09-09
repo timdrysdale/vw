@@ -16,7 +16,7 @@ import (
 	"github.com/google/uuid"
 )
 
-func startHttp(closed <-chan struct{}, wg *sync.WaitGroup, listen url.URL, opts HTTPOptions, msgChan chan message) {
+func startHttp(closed <-chan struct{}, wg *sync.WaitGroup, listen url.URL, opts HTTPOptions, msgChan chan message, running chan struct{}) {
 	defer wg.Done()
 
 	port, err := strconv.Atoi(listen.Port())
@@ -28,7 +28,10 @@ func startHttp(closed <-chan struct{}, wg *sync.WaitGroup, listen url.URL, opts 
 	fmt.Printf("\n Listening on :%d\n", port)
 	srv := startHttpServer(closed, wg, port, opts, msgChan)
 
-	<-closed
+	close(running) //signal that we're running
+
+	<-closed // wait for shutdown
+
 	fmt.Printf("Starting to close HTTP SERVER %v\n", wg)
 	if err := srv.Shutdown(context.TODO()); err != nil {
 		log.Panicf("failure/timeout shutting down the http server gracefully: %v", err)
