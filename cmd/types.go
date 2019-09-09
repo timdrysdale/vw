@@ -13,6 +13,10 @@ type Commands struct {
 
 type Endpoints map[string]string
 
+type Monitor struct {
+	Monitor []string `yaml:"monitor"`
+}
+
 type Stream struct {
 	Destination string      `yaml:"destination"`
 	Feeds       interface{} `yaml:"feeds"`

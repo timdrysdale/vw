@@ -23,8 +23,14 @@ variables:
   session: 7525cb39-554e-43e1-90ed-3a97e8d1c6bf
   outurl: "wss://video.practable.io:443"
 
+monitor:
+  - video0
+	
 streams: 
   -   destination: "${outurl}/video1"
       feeds: 
         - video0
+      
+	    
+        		
 

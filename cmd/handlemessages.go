@@ -24,24 +24,17 @@ func distributeMessage(topics *topicDirectory, msg message) {
 
 	distributionList := topics.directory[msg.sender.topic]
 
-	// assuming buffered messageChans, all writes should succeed immediately
-	//fmt.Printf("\nDistrolist: %f%\n", distributionList)
 	for _, destination := range distributionList {
+
 		//don't send to sender
 		if destination.name != msg.sender.name {
-			//non-blocking write to chan - skips if can't write
-			//go func() { destination.messagesChan <- message }()
-
-			destination.messagesChan <- msg //we're dropping a lot of messages so try this for now
-
-			//select {
-			//case destination.messagesChan <- msg:
-			//fmt.Printf("sent %v to %v", destination, len(msg.data))
-			//default:
-			//	fmt.Printf("Warn: not sending message to %v (%v)\n", destination, msg) //TODO log this "properly"
-			//}
+			select {
+			case destination.messagesChan <- msg:
+			default:
+				//TODO alert monitor to this issue?
+				close(destination.messagesChan)
+			}
 		}
 	}
-
 	topics.Unlock()
 }

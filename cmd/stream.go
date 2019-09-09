@@ -208,16 +208,23 @@ var streamCmd = &cobra.Command{
 		go startWss(closed, &wg, outputs, clientActionsChan, clientOpts)
 		go startWriters(closed, &wg, writers, clientActionsChan)
 
-		// TODO wait until the http server is up - maybe send a test response? or have it signal on a channel?
-		//time.Sleep(1000 * time.Millisecond)
-
 		<-httpRunning //wait for http server to start
 
 		wg.Add(1)
 		go runCaptureCommands(closed, &wg, captureCommands)
 
+		var monitor Monitor
+		if err = viper.Unmarshal(&monitor); err != nil {
+			log.Fatalf("Viper unmarshal monitor failed: %v", err)
+		} else {
+			log.WithField("feeds", monitor).Info("Feeds to monitor")
+		}
+
+		wg.Add(1)
+
+		go runMonitor(closed, &wg, &topics, monitor, clientActionsChan)
+
 		wg.Wait()
-		time.Sleep(time.Second)
 
 	},
 }

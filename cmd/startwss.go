@@ -76,17 +76,14 @@ func wssClient(closed <-chan struct{}, wg *sync.WaitGroup, stream Stream, name s
 				return
 			}
 		case <-closed:
-			log.Info("Closed")
 
 			// Cleanly close the connection by sending a close message and then
-			// waiting (with timeout) for the server to close the connection.
+			// waiting (with timeout) for the server to close the connection (TODO: where is the timeout?)
 			err := c.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""))
 			if err != nil {
-				log.WithField("error", err).Info("Closing")
-				return
-			}
-			select {
-			case <-done:
+				log.WithField("error", err).Error("Closing")
+			} else {
+				log.Info("Closed")
 			}
 			return
 		}
