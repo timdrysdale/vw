@@ -24,7 +24,7 @@ variables:
   outurl: "wss://video.practable.io:443"
 
 streams: 
-  -   destination: "${outurl}/video1"
+  -   destination: "${outurl}/in/video1"
       feeds: 
         - video0
 
