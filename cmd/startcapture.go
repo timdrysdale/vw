@@ -45,7 +45,8 @@ func runCommand(closed <-chan struct{}, wg *sync.WaitGroup, command string) {
 		select {
 
 		case <-closed:
-			if err := cmd.Process.Kill(); err != nil {
+			//if err := cmd.Process.Kill(); err != nil {
+			if err := cmd.Process.Signal(os.Interrupt); err != nil {
 				log.Fatal("failed to kill process: ", err)
 			}
 			return

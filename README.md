@@ -133,8 +133,6 @@ Monitors can be configured to exit ```vw``` if a specified capture stream(s) fai
       - video0
 
 
-ISSUE: note that on odroid this feature is not yet working properly due to the issue with killing processes
- 
 ## Future features
 
 These are notes to me of possible features to consider, rather than promises to implement
@@ -157,7 +155,7 @@ This internals diagram was drawn before implementation. At present time, the mon
 
 ### Websockets
 
-The code was initially developed with ```nhooyr/websocket``` then ```gobwas/ws``` then ```gorilla/websocket```. 
+The code was initially developed with ```nhooyr/websocket``` then ```gobwas/ws``` then ```gorilla/websocket```. The usage model is for few high bandwidth connections so there is little advantage to be gained from the more recent re-implementations of websockets that focus on high connection counts with sparse activity.  
 
 
 ## Tests
@@ -185,3 +183,17 @@ The code was initially developed with ```nhooyr/websocket``` then ```gobwas/ws``
 [logo]: ./img/logo.png "VW logo"
 [internals]: ./img/internals.png "Diagram of VW internals showing http server, websocket client, mux, monitor, and syscall for ffmpegs"
 
+## Issues
+
+Websockets do not reconnect, but should
+Config file and command line integration is currently not fully implemented, and does not support all uses cases
+Logging does not seem to log to file 
+Port should be externally configurable for running capture commands separately
+A number of parameters are fixed but could/should be made optionally configurable in the config file
+Killing capture commands is not working on odroid
+Configuration updates, such as sending streams to new destinations should potentially be supported without restart, so as to avoid unnecessary USB connection cycles
+Some form of local preview would be useful
+Some form of auditing of what has been seen, what has been transmitted, would be useful (e.g. log to file)
+Tests need updating
+
+killing ffmpeg occasionally does not work - it appears this may not be the first time this issue has been [seen](https://lists.ffmpeg.org/pipermail/ffmpeg-user/2017-February/035181.html) but there is no follow up to this 2012 issue to shed light on what was found then.
