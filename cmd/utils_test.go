@@ -1,8 +1,12 @@
 package cmd
 
 import (
+	"fmt"
 	"log"
+	"net/url"
 	"testing"
+
+	"github.com/phayes/freeport"
 )
 
 var unix = "foo\r\n"
@@ -74,4 +78,16 @@ func clientExists(topics *topicDirectory, client clientDetails) bool {
 
 	return false
 
+}
+
+func getHost() *url.URL {
+	//get a free port
+	port, err := freeport.GetFreePort()
+	if err != nil {
+		log.Printf("Error getting free port %v", err)
+	}
+
+	addr := fmt.Sprintf("http://127.0.0.1:%d", port)
+	h, err := url.Parse(addr)
+	return h
 }

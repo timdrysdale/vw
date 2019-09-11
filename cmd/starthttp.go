@@ -5,28 +5,23 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
-	"net/url"
-	"strconv"
 	"sync"
 	"time"
 
 	"github.com/gobwas/ws"
 	"github.com/google/uuid"
+	log "github.com/sirupsen/logrus"
 )
 
-func startHttp(closed <-chan struct{}, wg *sync.WaitGroup, listen url.URL, opts HTTPOptions, msgChan chan message, running chan struct{}) {
+func startHttp(closed <-chan struct{}, wg *sync.WaitGroup, opts HTTPOptions, msgChan chan message, running chan struct{}) {
 	defer wg.Done()
 
-	port, err := strconv.Atoi(listen.Port())
-	if err != nil {
-		panic("Error Converting port into int")
-	}
-
 	wg.Add(1)
-	fmt.Printf("\n Listening on :%d\n", port)
-	srv := startHttpServer(closed, wg, port, opts, msgChan)
+
+	log.WithField("port", opts.Port).Debug("HTTP listening port set")
+
+	srv := startHttpServer(closed, wg, opts.Port, opts, msgChan)
 
 	close(running) //signal that we're running
 

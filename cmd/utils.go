@@ -2,7 +2,11 @@ package cmd
 
 import (
 	"fmt"
+	"os"
 	"strings"
+	"sync"
+
+	"github.com/sirupsen/logrus"
 )
 
 func clean(in string) string {
@@ -37,5 +41,34 @@ func filterClients(clients []clientDetails, filter clientDetails) []clientDetail
 func check(e error) {
 	if e != nil {
 		panic(e)
+	}
+}
+
+func sanitiseLevel(level string) logrus.Level {
+	switch strings.ToLower(level) {
+	case "panic":
+		return logrus.PanicLevel
+	case "fatal":
+		return logrus.FatalLevel
+	case "error":
+		return logrus.ErrorLevel
+	case "warning":
+		return logrus.WarnLevel
+	case "Info":
+		return logrus.InfoLevel
+	case "debug":
+		return logrus.DebugLevel
+	case "trace":
+		return logrus.TraceLevel
+	default:
+		return logrus.InfoLevel
+	}
+}
+
+func waitSignal(closed chan struct{}, channelSignal chan os.Signal, wg *sync.WaitGroup) {
+	for _ = range channelSignal {
+		close(closed)
+		wg.Wait()
+		os.Exit(1)
 	}
 }

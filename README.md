@@ -56,6 +56,9 @@ Note that on this architecture, ```cmd.process.kill()``` is currently suspected 
 
 ## Configuration
 
+A configuration file is required to configure the feeds. This is too verbose to be done at the command line so no command line options are provided for configuring feeds. The config file can be supplied as an argument, but if it is omitted, then ```vw``` looks for a file ```vw.yaml``` in the current working directory. Configuration files are not sought in the standard locations such as ```/etc/``` because it is likely that more than one copy of ```vw``` will be in use simultaneously, so it would not make sense to offer a feature that could lead to inadvertent duplication of configurations.
+
+
 On linux, a simple single-camera, no-audio, feed can be configured as shown below. There are two main parts to the configuration - commands to run to capture video and/or audio, and websocket servers to dial and forward those video/audio streams.
 
 

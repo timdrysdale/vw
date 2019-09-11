@@ -2,11 +2,8 @@ package cmd
 
 import (
 	"fmt"
-	"log"
 	"net/url"
 	"os"
-
-	"github.com/phayes/freeport"
 )
 
 func constructEndpoint(h *url.URL, inputName string) string {
@@ -104,16 +101,4 @@ func expandDestinations(o *Output, v Variables) {
 		fmt.Println(expandDestination(stream.Destination, v))
 	}
 	fmt.Printf("Vars: %v", v.Vars)
-}
-
-func getHost() *url.URL {
-	//get a free port
-	port, err := freeport.GetFreePort()
-	if err != nil {
-		log.Printf("Error getting free port %v", err)
-	}
-
-	addr := fmt.Sprintf("http://127.0.0.1:%d", port)
-	h, err := url.Parse(addr)
-	return h
 }

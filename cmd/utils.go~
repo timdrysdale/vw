@@ -1,7 +1,0 @@
-packge cmd
-
-func clean(in string) string{
-
-return strings.TrimRight(in, "\r\n")
-
-}
