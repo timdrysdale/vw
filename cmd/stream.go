@@ -6,10 +6,10 @@ import (
 	"sync"
 
 	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 
 	"github.com/kelseyhightower/envconfig"
 	log "github.com/sirupsen/logrus"
+	"github.com/timdrysdale/hub"
 )
 
 type Specification struct {
@@ -35,8 +35,6 @@ var streamCmd = &cobra.Command{
 
 		var outputs Output
 		var s Specification
-		var topics topicDirectory
-		var variables Variables
 		var wg sync.WaitGroup
 		var writers ToFile
 
@@ -52,10 +50,7 @@ var streamCmd = &cobra.Command{
 		log.WithField("s", s).Info("Specification")
 
 		// declare channels
-		clientActionsChan := make(chan clientAction)
 		httpRunning := make(chan struct{})
-		messagesToDistribute := make(chan message, s.MuxBufferLength)
-		topics.directory = make(map[string][]clientDetails)
 
 		// trap SIGINT
 		channelSignal := make(chan os.Signal, 1)
@@ -64,19 +59,20 @@ var streamCmd = &cobra.Command{
 		go waitSignal(closed, channelSignal, &wg)
 
 		// legacy configuration from yaml
-		if err := viper.Unmarshal(&outputs); err != nil {
-			log.WithField("error", err).Fatal("Failed to read output configuration - malformed?")
-		}
-		populateInputNames(&outputs)
+		/*
+			     if err := viper.Unmarshal(&outputs); err != nil {
+					log.WithField("error", err).Fatal("Failed to read output configuration - malformed?")
+				}
+				populateInputNames(&outputs)
 
-		if err := viper.Unmarshal(&writers); err != nil {
-			log.WithField("error", err).Fatal("Failed to read writer configuration - malformed?")
-		}
+				if err := viper.Unmarshal(&writers); err != nil {
+					log.WithField("error", err).Fatal("Failed to read writer configuration - malformed?")
+				}
 
-		populateInputNamesForWriters(&writers)
-		variables.Vars = viper.GetStringMapString("variables")
-		expandDestinations(&outputs, variables)
-
+				populateInputNamesForWriters(&writers)
+				variables.Vars = viper.GetStringMapString("variables")
+				expandDestinations(&outputs, variables)
+		*/
 		// start our sub processess
 		// TODO - setup the comms hub as a separate library
 
@@ -84,16 +80,17 @@ var streamCmd = &cobra.Command{
 
 		clientOpts := ClientOptions{BufferLength: s.ClientBufferLength, TimeoutMS: s.ClientTimeoutMs}
 
+		h := hub.New()
+		go h.RunWithStats(closed)
+
 		wg.Add(1)
-		go startHttp(closed, &wg, httpOpts, messagesToDistribute, httpRunning)
+		go startHttp(closed, &wg, httpOpts, h, httpRunning)
 
 		<-httpRunning //wait for http server to start
 
-		wg.Add(4)
-		go HandleMessages(closed, &wg, &topics, messagesToDistribute)
-		go HandleClients(closed, &wg, &topics, clientActionsChan)
-		go startWss(closed, &wg, outputs, clientActionsChan, clientOpts)
-		go startWriters(closed, &wg, writers, clientActionsChan)
+		wg.Add(2)
+		go startWss(closed, &wg, outputs, h, clientOpts)
+		go startWriters(closed, &wg, writers, h)
 
 		wg.Wait()
 

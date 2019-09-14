@@ -12,24 +12,27 @@ import (
 	"github.com/gobwas/ws"
 	"github.com/google/uuid"
 	log "github.com/sirupsen/logrus"
+	"github.com/timdrysdale/hub"
 )
 
-func startHttp(closed <-chan struct{}, wg *sync.WaitGroup, opts HTTPOptions, msgChan chan message, running chan struct{}) {
+func startHttp(closed <-chan struct{}, wg *sync.WaitGroup, opts HTTPOptions, h *hub.Hub, running chan struct{}) {
 	defer wg.Done()
 
 	wg.Add(1)
 
-	log.WithField("port", opts.Port).Debug("HTTP listening port set")
+	log.WithField("port", opts.Port).Debug("http.Server listening port set")
 
-	srv := startHttpServer(closed, wg, opts.Port, opts, msgChan)
+	srv := startHttpServer(closed, wg, opts.Port, opts, h)
 
 	close(running) //signal that we're running
 
+	log.Debug("Started http.Server")
+
 	<-closed // wait for shutdown
 
-	fmt.Printf("Starting to close HTTP SERVER %v\n", wg)
+	log.Debug("Starting to close http.Server")
 	if err := srv.Shutdown(context.TODO()); err != nil {
-		log.Panicf("failure/timeout shutting down the http server gracefully: %v", err)
+		log.WithField("error", err).Fatal("Failure/timeout shutting down the http.Server gracefully")
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second) //TODO make configurable
@@ -37,9 +40,11 @@ func startHttp(closed <-chan struct{}, wg *sync.WaitGroup, opts HTTPOptions, msg
 
 	srv.SetKeepAlivesEnabled(false)
 	if err := srv.Shutdown(ctx); err != nil {
-		log.Fatalf("Could not gracefully shutdown the server: %v\n", err)
+		log.WithField("error", err).Fatal("Could not gracefully shutdown http.Server")
 	}
-	fmt.Printf("Exiting START HTTP SERVER %v\n", wg)
+
+	log.Debug("Stopped http.Server")
+
 	return
 } // startHttp
 
@@ -47,31 +52,36 @@ func startHttp(closed <-chan struct{}, wg *sync.WaitGroup, opts HTTPOptions, msg
 //mux.Handler("/request", requesthandler)
 //http.ListenAndServe(":9000", nil)
 
-func startHttpServer(closed <-chan struct{}, wg *sync.WaitGroup, port int, opts HTTPOptions, msgChan chan message) *http.Server {
+func startHttpServer(closed <-chan struct{}, wg *sync.WaitGroup, port int, opts HTTPOptions, h *hub.Hub) *http.Server {
 	defer wg.Done()
 	addr := fmt.Sprintf(":%d", port)
 	srv := &http.Server{Addr: addr}
 
-	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) { muxingHandler(closed, w, r, opts, msgChan) })
+	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) { muxingHandler(closed, w, r, opts, h) })
 
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
 
+		//https://stackoverflow.com/questions/39320025/how-to-stop-http-listenandserve
 		// returns ErrServerClosed on graceful close
 		if err := srv.ListenAndServe(); err != http.ErrServerClosed {
-			//https://stackoverflow.com/questions/39320025/how-to-stop-http-listenandserve
-			log.Fatalf("ListenAndServe(): %s", err)
+			log.WithField("error", err).Fatal("http.ListenAndServe")
 		}
-		fmt.Printf("Exiting HTTPServer %v\n", wg)
+		log.Debug("Exiting http.Server")
 	}()
 
 	// returning reference so caller can call Shutdown()
 	return srv
 }
 
-func muxingHandler(closed <-chan struct{}, w http.ResponseWriter, r *http.Request, opts HTTPOptions, msgChan chan message) {
-	myDetails := clientDetails{uuid.New().String()[:3], r.URL.Path, make(chan message)}
+func muxingHandler(closed <-chan struct{}, w http.ResponseWriter, r *http.Request, opts HTTPOptions, h *hub.Hub) {
+
+	myDetails := &hub.Client{Hub: h,
+		Name:  uuid.New().String()[:3],
+		Send:  make(chan hub.Message),
+		Stats: hub.NewClientStats(),
+		Topic: r.URL.Path}
 
 	//receive MPEGTS in 188 byte chunks
 	//ffmpeg uses one tcp packet per frame
@@ -169,8 +179,8 @@ func muxingHandler(closed <-chan struct{}, w http.ResponseWriter, r *http.Reques
 			frameBuffer.mux.Unlock()
 
 			if err == nil && n > 0 {
-				msg := message{sender: myDetails, op: ws.OpBinary, data: frame}
-				msgChan <- msg
+				msg := hub.Message{Sender: *myDetails, Type: int(ws.OpBinary), Data: frame, Sent: time.Now()}
+				h.Broadcast <- msg
 			}
 
 		case <-closed:
