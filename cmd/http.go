@@ -57,7 +57,9 @@ func startHttpServer(closed <-chan struct{}, wg *sync.WaitGroup, port int, opts 
 	addr := fmt.Sprintf(":%d", port)
 	srv := &http.Server{Addr: addr}
 
-	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) { muxingHandler(closed, w, r, opts, h) })
+	http.HandleFunc("/ts", func(w http.ResponseWriter, r *http.Request) { tsHandler(closed, w, r, opts, h) })
+	http.HandleFunc("/ws", func(w http.ResponseWriter, r *http.Request) { wsHandler(closed, w, r, opts, h) })
+	http.HandleFunc("/api", func(w http.ResponseWriter, r *http.Request) { apiHandler(closed, w, r, opts, h) })
 
 	wg.Add(1)
 	go func() {
@@ -75,7 +77,7 @@ func startHttpServer(closed <-chan struct{}, wg *sync.WaitGroup, port int, opts 
 	return srv
 }
 
-func muxingHandler(closed <-chan struct{}, w http.ResponseWriter, r *http.Request, opts HTTPOptions, h *hub.Hub) {
+func tsHandler(closed <-chan struct{}, w http.ResponseWriter, r *http.Request, opts HTTPOptions, h *hub.Hub) {
 
 	myDetails := &hub.Client{Hub: h,
 		Name:  uuid.New().String()[:3],
@@ -133,7 +135,7 @@ func muxingHandler(closed <-chan struct{}, w http.ResponseWriter, r *http.Reques
 				frameBuffer.mux.Unlock()
 
 				if err != nil {
-					log.Fatalf("%v", err)
+					log.Errorf("%v", err) //was Fatal?
 					return
 				}
 
@@ -184,7 +186,7 @@ func muxingHandler(closed <-chan struct{}, w http.ResponseWriter, r *http.Reques
 			}
 
 		case <-closed:
-			fmt.Printf("\nMuxHandler got closed\n")
+			log.WithFields(log.Fields{"Name": name, "Topic": topic}).Info("http.muxHandler closed")
 			return
 		}
 	}
