@@ -13,10 +13,11 @@ import (
 	"github.com/gobwas/ws"
 	"github.com/google/uuid"
 	log "github.com/sirupsen/logrus"
+	"github.com/timdrysdale/agg"
 	"github.com/timdrysdale/hub"
 )
 
-func startHttp(closed <-chan struct{}, wg *sync.WaitGroup, opts HTTPOptions, h *hub.Hub, running chan struct{}) {
+func startHttp(closed <-chan struct{}, wg *sync.WaitGroup, opts HTTPOptions, h *agg.Hub, running chan struct{}) {
 	defer wg.Done()
 
 	wg.Add(1)
@@ -49,7 +50,7 @@ func startHttp(closed <-chan struct{}, wg *sync.WaitGroup, opts HTTPOptions, h *
 	return
 } // startHttp
 
-func startHttpServer(closed <-chan struct{}, wg *sync.WaitGroup, port int, opts HTTPOptions, h *hub.Hub) *http.Server {
+func startHttpServer(closed <-chan struct{}, wg *sync.WaitGroup, port int, opts HTTPOptions, h *agg.Hub) *http.Server {
 	defer wg.Done()
 	addr := fmt.Sprintf(":%d", port)
 	srv := &http.Server{Addr: addr}
@@ -74,12 +75,12 @@ func startHttpServer(closed <-chan struct{}, wg *sync.WaitGroup, port int, opts 
 	return srv
 }
 
-func tsHandler(closed <-chan struct{}, w http.ResponseWriter, r *http.Request, opts HTTPOptions, h *hub.Hub) {
+func tsHandler(closed <-chan struct{}, w http.ResponseWriter, r *http.Request, opts HTTPOptions, h *agg.Hub) {
 
 	topic := strings.TrimPrefix(r.URL.Path, "/") //trim separately because net does not guarantee leading /
 	topic = strings.TrimPrefix(topic, "ts")      //strip ts because we're agnostic to which handler gets the feed
 	name := uuid.New().String()[:3]
-	myDetails := &hub.Client{Hub: h,
+	myDetails := &hub.Client{Hub: h.Hub,
 		Name:  name,
 		Send:  make(chan hub.Message),
 		Stats: hub.NewClientStats(),

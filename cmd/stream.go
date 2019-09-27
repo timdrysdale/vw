@@ -6,10 +6,10 @@ import (
 	"sync"
 
 	"github.com/spf13/cobra"
+	"github.com/timdrysdale/agg"
 
 	"github.com/kelseyhightower/envconfig"
 	log "github.com/sirupsen/logrus"
-	"github.com/timdrysdale/hub"
 )
 
 type Specification struct {
@@ -56,18 +56,19 @@ var streamCmd = &cobra.Command{
 		channelSignal := make(chan os.Signal, 1)
 		closed := make(chan struct{})
 		signal.Notify(channelSignal, os.Interrupt)
-		go waitSignal(closed, channelSignal, &wg)
-
-		// TODO
-		// ws server  for experiments to log into
-
-		// start our sub processess
+		go func() {
+			for _ = range channelSignal {
+				close(closed)
+				wg.Wait()
+				os.Exit(1)
+			}
+		}()
 
 		httpOpts := HTTPOptions{Port: s.Port, WaitMS: s.HttpWaitMs, FlushMS: s.HttpFlushMs, TimeoutMS: s.HttpTimeoutMs}
 
 		//clientOpts := ClientOptions{BufferLength: s.ClientBufferLength, TimeoutMS: s.ClientTimeoutMs}
 
-		h := hub.New()
+		h := agg.New()
 		go h.RunWithStats(closed)
 
 		wg.Add(1)
@@ -76,7 +77,7 @@ var streamCmd = &cobra.Command{
 		<-httpRunning //wait for http server to start
 
 		//wg.Add(2)
-		//go startWss(closed, &wg, outputs, h, clientOpts)
+
 		//go startWriters(closed, &wg, writers, h)
 
 		wg.Wait()

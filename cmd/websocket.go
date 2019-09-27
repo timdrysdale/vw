@@ -8,6 +8,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
 	log "github.com/sirupsen/logrus"
+	"github.com/timdrysdale/agg"
 	"github.com/timdrysdale/hub"
 )
 
@@ -38,14 +39,7 @@ var upgrader = websocket.Upgrader{
 	CheckOrigin:     func(r *http.Request) bool { return true },
 }
 
-type WsHandlerClient struct {
-	Messages   *hub.Client
-	Conn       *websocket.Conn
-	UserAgent  string //r.UserAgent()
-	RemoteAddr string //r.Header.Get("X-Forwarded-For")
-}
-
-func wsHandler(closed <-chan struct{}, w http.ResponseWriter, r *http.Request, opts HTTPOptions, h *hub.Hub) {
+func wsHandler(closed <-chan struct{}, w http.ResponseWriter, r *http.Request, opts HTTPOptions, h *agg.Hub) {
 
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
@@ -56,7 +50,7 @@ func wsHandler(closed <-chan struct{}, w http.ResponseWriter, r *http.Request, o
 	topic := strings.TrimPrefix(r.URL.Path, "/") //trim separately because net does not guarantee leading /
 	topic = strings.TrimPrefix(topic, "ws")      //strip ws because we're agnostic to which handler gets the feed
 
-	messageClient := &hub.Client{Hub: h,
+	messageClient := &hub.Client{Hub: h.Hub,
 		Name:  uuid.New().String()[:3],
 		Send:  make(chan hub.Message),
 		Stats: hub.NewClientStats(),

@@ -5,30 +5,11 @@ import (
 	"crypto/rand"
 	"fmt"
 	"io/ioutil"
-	"net/http"
 	"os/exec"
 	"testing"
-	"time"
-
-	"github.com/gobwas/ws"
-	"github.com/gobwas/ws/wsutil"
-	"github.com/gorilla/websocket"
-	"github.com/phayes/freeport"
 )
 
-var configBinaryCurl = `--- 
-commands: 
-  - "curl  --request POST --data-binary @bin.dat ${binarydata}"
-outurl: "ws://127.0.0.1:%d"
-session: 7525cb39-554e-43e1-90ed-3a97e8d1c6bf
-uuid: 49270598-9da2-4209-98da-e559f0c587b4
-streams: 
-  -   destination: "${outurl}/${uuid}/${session}/front/medium"
-      feeds: 
-        - binarydata
-`
-
-var testUpgrader = websocket.Upgrader{}
+//curl  --request POST --data-binary @bin.dat http://localhost:${VW_PORT}/ts/test
 
 func TestStream(t *testing.T) {
 
@@ -41,27 +22,12 @@ func TestStream(t *testing.T) {
 	cmd = exec.Command("rm", "./rx.dat")
 	err = cmd.Run()
 
-	port, err := freeport.GetFreePort()
-	if err != nil {
-		fmt.Printf("Error getting free port %v", err)
-	}
-
-	writeConfig(port)
-
 	_, err = writeDataFile(1024000, "./bin.dat")
 	if err != nil {
 		fmt.Printf("Error writing data file %v", err)
 	}
 
-	go func() {
-		//give wsReceiver a chance to start
-		time.Sleep(100 * time.Millisecond)
-		streamCmd.Execute()
-	}()
-
-	go wsReceiver(port, t)
-
-	time.Sleep(10 * time.Millisecond)
+	t.Error("TestStream not implemented") // stream bin.dat here....
 
 	var outbuf bytes.Buffer
 
@@ -78,17 +44,6 @@ func TestStream(t *testing.T) {
 	err = cmd.Run()
 }
 
-func writeConfig(port int) error {
-
-	config := []byte(fmt.Sprintf(configBinaryCurl, port))
-
-	name := "./vw.yaml"
-
-	err := ioutil.WriteFile(name, config, 0644)
-
-	return err
-}
-
 func writeDataFile(size int, name string) ([]byte, error) {
 
 	data := make([]byte, size)
@@ -99,39 +54,3 @@ func writeDataFile(size int, name string) ([]byte, error) {
 	return data, err
 
 }
-
-func wsReceiver(port int, t *testing.T) {
-
-	var msg []byte
-
-	addr := fmt.Sprintf(":%d", port)
-
-	http.ListenAndServe(addr, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		conn, _, _, err := ws.UpgradeHTTP(r, w)
-		if err != nil {
-			t.Errorf("Error starting wsReceiver for test: %v", err)
-		}
-		defer conn.Close()
-
-		msg, _, _ = wsutil.ReadClientData(conn)
-		if err != nil {
-			t.Errorf("Error starting wsReceiver for test: %v", err)
-		} else {
-			err = ioutil.WriteFile("./rx.dat", msg, 0644)
-			if err != nil {
-				t.Errorf("Error writing data to file: %v", err)
-
-			}
-		}
-	}))
-}
-
-/*
-
- TODO
-
- start sending a stream, then cause websocket to die
- profile streaming only in test
- benchmark timing/latency of packets
-
-*/
