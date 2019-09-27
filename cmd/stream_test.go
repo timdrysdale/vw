@@ -1,7 +1,5 @@
 package cmd
 
-//This is named z... so it runs last - else it conflicts with streamtest
-
 import (
 	"bytes"
 	"crypto/rand"
@@ -30,7 +28,7 @@ streams:
         - binarydata
 `
 
-var upgrader = websocket.Upgrader{}
+var testUpgrader = websocket.Upgrader{}
 
 func TestStream(t *testing.T) {
 
@@ -127,52 +125,6 @@ func wsReceiver(port int, t *testing.T) {
 		}
 	}))
 }
-
-/*
-
-	// handle memprofile
-	go func() {
-
-		if memprofile != "" {
-
-			time.Sleep(time.Duration(duration) * time.Second)
-
-			f, err := os.Create(memprofile)
-
-			if err != nil {
-				log.WithField("error", err).Fatal("Could not create memory profile")
-			}
-
-			defer f.Close()
-
-			if err := pprof.WriteHeapProfile(f); err != nil {
-				log.WithField("error", err).Fatal("Could not write memory profile")
-			}
-
-			defer pprof.StopCPUProfile()
-			close(closed)
-		}
-	}()
-
-	// handle cpuprofile
-	if cpuprofile != "" {
-
-		f, err := os.Create(cpuprofile)
-
-		if err != nil {
-			log.WithField("error", err).Fatal("Could not create CPU profile")
-		}
-
-		defer f.Close()
-
-		if err := pprof.StartCPUProfile(f); err != nil {
-			log.WithField("error", err).Fatal("Could not start CPU profile")
-		}
-
-		defer pprof.StopCPUProfile()
-
-	}
-*/
 
 /*
 

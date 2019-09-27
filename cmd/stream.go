@@ -33,20 +33,20 @@ var streamCmd = &cobra.Command{
 	Long:  `capture video incoming to http and stream out over websockets`,
 	Run: func(cmd *cobra.Command, args []string) {
 
-		var outputs Output
 		var s Specification
 		var wg sync.WaitGroup
-		var writers ToFile
 
-		// load & log configuration
+		// load configuration from environment variables VW_<var>
 		if err := envconfig.Process("vw", &s); err != nil {
 			log.Fatal(err.Error())
 		}
 
+		//set log format
 		log.SetFormatter(&log.JSONFormatter{})
 		log.SetOutput(os.Stdout)
 		log.SetLevel(sanitiseLevel(s.LogLevel))
 
+		//log configuration
 		log.WithField("s", s).Info("Specification")
 
 		// declare channels
@@ -58,27 +58,14 @@ var streamCmd = &cobra.Command{
 		signal.Notify(channelSignal, os.Interrupt)
 		go waitSignal(closed, channelSignal, &wg)
 
-		// legacy configuration from yaml
-		/*
-			     if err := viper.Unmarshal(&outputs); err != nil {
-					log.WithField("error", err).Fatal("Failed to read output configuration - malformed?")
-				}
-				populateInputNames(&outputs)
+		// TODO
+		// ws server  for experiments to log into
 
-				if err := viper.Unmarshal(&writers); err != nil {
-					log.WithField("error", err).Fatal("Failed to read writer configuration - malformed?")
-				}
-
-				populateInputNamesForWriters(&writers)
-				variables.Vars = viper.GetStringMapString("variables")
-				expandDestinations(&outputs, variables)
-		*/
 		// start our sub processess
-		// TODO - setup the comms hub as a separate library
 
 		httpOpts := HTTPOptions{Port: s.Port, WaitMS: s.HttpWaitMs, FlushMS: s.HttpFlushMs, TimeoutMS: s.HttpTimeoutMs}
 
-		clientOpts := ClientOptions{BufferLength: s.ClientBufferLength, TimeoutMS: s.ClientTimeoutMs}
+		//clientOpts := ClientOptions{BufferLength: s.ClientBufferLength, TimeoutMS: s.ClientTimeoutMs}
 
 		h := hub.New()
 		go h.RunWithStats(closed)
@@ -88,9 +75,9 @@ var streamCmd = &cobra.Command{
 
 		<-httpRunning //wait for http server to start
 
-		wg.Add(2)
-		go startWss(closed, &wg, outputs, h, clientOpts)
-		go startWriters(closed, &wg, writers, h)
+		//wg.Add(2)
+		//go startWss(closed, &wg, outputs, h, clientOpts)
+		//go startWriters(closed, &wg, writers, h)
 
 		wg.Wait()
 

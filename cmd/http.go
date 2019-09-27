@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 
@@ -48,10 +49,6 @@ func startHttp(closed <-chan struct{}, wg *sync.WaitGroup, opts HTTPOptions, h *
 	return
 } // startHttp
 
-//mux := http.NewServeMux()
-//mux.Handler("/request", requesthandler)
-//http.ListenAndServe(":9000", nil)
-
 func startHttpServer(closed <-chan struct{}, wg *sync.WaitGroup, port int, opts HTTPOptions, h *hub.Hub) *http.Server {
 	defer wg.Done()
 	addr := fmt.Sprintf(":%d", port)
@@ -59,7 +56,7 @@ func startHttpServer(closed <-chan struct{}, wg *sync.WaitGroup, port int, opts 
 
 	http.HandleFunc("/ts", func(w http.ResponseWriter, r *http.Request) { tsHandler(closed, w, r, opts, h) })
 	http.HandleFunc("/ws", func(w http.ResponseWriter, r *http.Request) { wsHandler(closed, w, r, opts, h) })
-	http.HandleFunc("/api", func(w http.ResponseWriter, r *http.Request) { apiHandler(closed, w, r, opts, h) })
+	//http.HandleFunc("/api", func(w http.ResponseWriter, r *http.Request) { apiHandler(closed, w, r, opts, h) })
 
 	wg.Add(1)
 	go func() {
@@ -79,11 +76,14 @@ func startHttpServer(closed <-chan struct{}, wg *sync.WaitGroup, port int, opts 
 
 func tsHandler(closed <-chan struct{}, w http.ResponseWriter, r *http.Request, opts HTTPOptions, h *hub.Hub) {
 
+	topic := strings.TrimPrefix(r.URL.Path, "/") //trim separately because net does not guarantee leading /
+	topic = strings.TrimPrefix(topic, "ts")      //strip ts because we're agnostic to which handler gets the feed
+	name := uuid.New().String()[:3]
 	myDetails := &hub.Client{Hub: h,
-		Name:  uuid.New().String()[:3],
+		Name:  name,
 		Send:  make(chan hub.Message),
 		Stats: hub.NewClientStats(),
-		Topic: r.URL.Path}
+		Topic: topic}
 
 	//receive MPEGTS in 188 byte chunks
 	//ffmpeg uses one tcp packet per frame
