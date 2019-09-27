@@ -39,7 +39,7 @@ var upgrader = websocket.Upgrader{
 	CheckOrigin:     func(r *http.Request) bool { return true },
 }
 
-func wsHandler(closed <-chan struct{}, w http.ResponseWriter, r *http.Request, opts HTTPOptions, h *agg.Hub) {
+func wsHandler(closed <-chan struct{}, w http.ResponseWriter, r *http.Request, h *agg.Hub) {
 
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {

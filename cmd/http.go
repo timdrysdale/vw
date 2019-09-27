@@ -56,7 +56,7 @@ func startHttpServer(closed <-chan struct{}, wg *sync.WaitGroup, port int, opts 
 	srv := &http.Server{Addr: addr}
 
 	http.HandleFunc("/ts", func(w http.ResponseWriter, r *http.Request) { tsHandler(closed, w, r, opts, h) })
-	http.HandleFunc("/ws", func(w http.ResponseWriter, r *http.Request) { wsHandler(closed, w, r, opts, h) })
+	http.HandleFunc("/ws", func(w http.ResponseWriter, r *http.Request) { wsHandler(closed, w, r, h) })
 	//http.HandleFunc("/api", func(w http.ResponseWriter, r *http.Request) { apiHandler(closed, w, r, opts, h) })
 
 	wg.Add(1)
