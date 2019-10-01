@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"crypto/rand"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -37,6 +36,9 @@ func TestMessageBoundaries(t *testing.T) {
 	//
 	// Test harness comprises a syscall to ffmpeg to stream some frames and hub client
 	// which checks for those messages to have the appropriate size
+	//
+	// This also checks that the /ts is stripped from the path correctly so that the video
+	// is forwarded to the right topic
 
 	closed := make(chan struct{})
 
@@ -51,20 +53,16 @@ func TestMessageBoundaries(t *testing.T) {
 
 	time.Sleep(2 * time.Millisecond)
 
-	// check hubstats
+	// check hubstats to see if registered ok
 	if len(h.Hub.Clients) != 1 {
 		t.Errorf("Wrong number of clients registered to hub wanted/got %d/%d", 1, len(h.Hub.Clients))
 	}
 
 	// server to action the handler under test
 	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { tsHandler(closed, w, r, h) }))
-
 	defer s.Close()
 
 	time.Sleep(2 * time.Millisecond)
-
-	data := make([]byte, 188*1024)
-	rand.Read(data)
 
 	// taken from a known good version of the code when running on the sample video
 	frameSizes := []int{15980,
@@ -111,7 +109,7 @@ func TestMessageBoundaries(t *testing.T) {
 		t.Error("ffmpeg", err)
 	}
 
-	// hang on long enough for all the timeouts in the anonymous goroutine to trigger
+	// hang on long enough for timeouts in the anonymous goroutine to trigger
 	time.Sleep(300 * time.Millisecond)
 
 	close(closed)
