@@ -49,7 +49,7 @@ func startHttpServer(closed <-chan struct{}, wg *sync.WaitGroup, port int, opts 
 	addr := fmt.Sprintf(":%d", port)
 	srv := &http.Server{Addr: addr}
 
-	http.HandleFunc("/ts", func(w http.ResponseWriter, r *http.Request) { tsHandler(closed, w, r, opts, h) })
+	http.HandleFunc("/ts", func(w http.ResponseWriter, r *http.Request) { tsHandler(closed, w, r, h) })
 	http.HandleFunc("/ws", func(w http.ResponseWriter, r *http.Request) { wsHandler(closed, w, r, h) })
 	//http.HandleFunc("/api", func(w http.ResponseWriter, r *http.Request) { apiHandler(closed, w, r, opts, h) })
 

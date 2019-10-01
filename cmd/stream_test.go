@@ -2,9 +2,7 @@ package cmd
 
 import (
 	"bytes"
-	"crypto/rand"
 	"fmt"
-	"io/ioutil"
 	"os/exec"
 	"testing"
 )
@@ -44,15 +42,4 @@ func TestStream(t *testing.T) {
 	err = cmd.Run()
 	cmd = exec.Command("rm", "./rx.dat")
 	err = cmd.Run()
-}
-
-func writeDataFile(size int, name string) ([]byte, error) {
-
-	data := make([]byte, size)
-	rand.Read(data)
-
-	err := ioutil.WriteFile(name, data, 0644)
-
-	return data, err
-
 }
