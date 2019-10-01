@@ -10,10 +10,15 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
+	log "github.com/sirupsen/logrus"
 	"github.com/timdrysdale/agg"
 	"github.com/timdrysdale/hub"
 	"github.com/timdrysdale/reconws"
 )
+
+func init() {
+	log.SetLevel(log.ErrorLevel)
+}
 
 func TestSendMessageViaClient(t *testing.T) {
 
@@ -34,8 +39,8 @@ func TestSendMessageViaClient(t *testing.T) {
 
 	time.Sleep(time.Millisecond)
 
-	fmt.Println(h.Hub.Clients)
-	fmt.Println("Waiting for message ...")
+	//fmt.Println(h.Hub.Clients)
+	//fmt.Println("Waiting for message ...")
 	select {
 	case <-time.After(10 * time.Millisecond):
 	case msg, ok := <-crx.Send:
@@ -49,63 +54,95 @@ func TestSendMessageViaClient(t *testing.T) {
 }
 
 func TestSendMessageViaWs(t *testing.T) {
+	// This was confusing when I came back to it, so here's a diagram:
+	//
+	//           +----------+       +----------+        +---------+             +----------+
+	//           |    r     |       |          |        |         |             |          |
+	//r.Out+---->+ (reconws |       | wsHandler|        |  Agg    | crx.Send    |  crx     |
+	//           |  test    +------>+  (under  +------->+         +-------------> (hub     |
+	// r.In<-----+  client) |       |   test)  |        |         |             |  test    |
+	//           |          |       |          |        |         |             |  client) |
+	//           +----------+       +----------+        +---------+             +----------+
+	//
+	// <-------- TEST HARNESS--><--ITEM UNDER TEST--><---TEST HARNESS---------------------->
+	//
+	//                                                 --diagram created using asciiflow.com
+	//
+	// Explanation:
+	// What's under test is the wsHandler's ability to direct messages from an incoming websocket
+	// connection to the appropriate topic in the agg (aggregating) hub.
+	//
+	// Test harness comprises a reconws client, to send the message, and an agg and a
+	// standard hub.Client to receive the message
+	//
+	// The message is fed into the channel r.Out of the reconws test client, which sends it over
+	// websocket to ws://locahost:<testport>/ws/greetings
+	// crx, the hub test client, has registered to topic /greetings
+	// so the wsHandler has to strip the leading /ws for this test to pass
+	// obviously this is more of an integration test, because we are using agg and a hub.Client
+	// which only really occurred to me after writing this more complete test
 
 	closed := make(chan struct{})
 
+	// Test harness, receiving side (agg, and hub.Client)
 	h := agg.New()
 	go h.Run(closed)
 
-	//ctx := &hub.Client{Hub: h.Hub, Name: "tx", Topic: "/greetings", Send: make(chan hub.Message), Stats: hub.NewClientStats()}
+	time.Sleep(1 * time.Millisecond)
+
 	crx := &hub.Client{Hub: h.Hub, Name: "rx", Topic: "/greetings", Send: make(chan hub.Message), Stats: hub.NewClientStats()}
-
 	h.Register <- crx
-
-	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { wsHandler(closed, w, r, h) }))
-
-	defer s.Close()
-
-	r := reconws.New()
-
-	r.Url = "ws" + strings.TrimPrefix(s.URL, "http") //+ "/ws/greetings"
-
-	fmt.Println(r.Url)
-
-	go r.Reconnect()
-
-	greeting := []byte("hello")
-
-	go func() {
-		m := &reconws.WsMessage{Data: greeting, Type: websocket.TextMessage}
-		r.In <- *m
-	}()
 
 	time.Sleep(time.Millisecond)
 
-	fmt.Println(h.Hub.Clients)
-	fmt.Println("Waiting for message ...")
+	// check hubstats
+	if len(h.Hub.Clients) != 1 {
+		t.Errorf("Wrong number of clients registered to hub wanted/got %d/%d", 1, len(h.Hub.Clients))
+	}
+
+	// server to action the handler under test
+	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { wsHandler(closed, w, r, h) }))
+	defer s.Close()
+
+	time.Sleep(1 * time.Millisecond)
+
+	// test harness on the sending side
+	r := reconws.New()
+	r.Url = "ws" + strings.TrimPrefix(s.URL, "http") + "/ws/greetings"
+	go r.Reconnect()
+
+	time.Sleep(1 * time.Millisecond)
+
+	// test - send a message :-
+	greeting := []byte("hello")
+	go func() {
+		m := &reconws.WsMessage{Data: greeting, Type: websocket.TextMessage}
+		r.Out <- *m
+		//fmt.Println("sent message")
+	}()
+
+	time.Sleep(1 * time.Millisecond)
+
 	select {
 	case <-time.After(10 * time.Millisecond):
 		t.Error("timed out")
-	case msg := <-crx.Send:
-
-		fmt.Println("Got message...")
-		if bytes.Compare(msg.Data, greeting) != 0 {
-			t.Errorf("Greeting content unexpected; got/wanted %v/%v\n", string(msg.Data), string(greeting))
+	case msg, ok := <-crx.Send:
+		if ok {
+			//fmt.Println("received message")
+			if bytes.Compare(msg.Data, greeting) != 0 {
+				t.Errorf("Greeting content unexpected; got/wanted %v/%v\n", string(msg.Data), string(greeting))
+			}
+		} else {
+			t.Error("channel not ok")
 		}
-
 	}
 
-	//select {
-	//case msg := <-crx.Send:
-	//	if bytes.Compare(msg.Data, greeting) != 0 {
-	//		t.Errorf("Greeting content unexpected; got/wanted %v/%v\n", string(msg.Data), string(greeting))
-	//	}
-	//default:
-	//	t.Error("Failed to receive message")
-	//}
+	//	time.Sleep(time.Millisecond)
 
 	close(closed)
 	close(r.Stop)
+
+	time.Sleep(time.Millisecond) //allow time for goroutines to end before starting a new http server
 }
 
 // this test only shows that the httptest server is working ok

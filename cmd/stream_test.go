@@ -11,7 +11,7 @@ import (
 
 //curl  --request POST --data-binary @bin.dat http://localhost:${VW_PORT}/ts/test
 
-func TestStream(t *testing.T) {
+func testStream(t *testing.T) {
 
 	if testing.Short() {
 		t.Skip("skipping integration test")
