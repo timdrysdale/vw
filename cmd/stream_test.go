@@ -11,7 +11,9 @@ import (
 
 //curl  --request POST --data-binary @bin.dat http://localhost:${VW_PORT}/ts/test
 
-func testStream(t *testing.T) {
+func TestStream(t *testing.T) {
+
+	t.Skip("Skipping - Need a way to configure vw before this test can be run :-)")
 
 	if testing.Short() {
 		t.Skip("skipping integration test")

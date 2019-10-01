@@ -80,7 +80,9 @@ func TestSendMessageViaWs(t *testing.T) {
 	// crx, the hub test client, has registered to topic /greetings
 	// so the wsHandler has to strip the leading /ws for this test to pass
 	// obviously this is more of an integration test, because we are using agg and a hub.Client
-	// which only really occurred to me after writing this more complete test
+	// which only really occurred to me after writing this more complete test.
+	// Consequently, we also take the opportunity to check the reverse passage of messages and
+	// have crx reply to the websocket client
 
 	closed := make(chan struct{})
 
@@ -88,12 +90,12 @@ func TestSendMessageViaWs(t *testing.T) {
 	h := agg.New()
 	go h.Run(closed)
 
-	time.Sleep(1 * time.Millisecond)
+	time.Sleep(2 * time.Millisecond)
 
 	crx := &hub.Client{Hub: h.Hub, Name: "rx", Topic: "/greetings", Send: make(chan hub.Message), Stats: hub.NewClientStats()}
 	h.Register <- crx
 
-	time.Sleep(time.Millisecond)
+	time.Sleep(2 * time.Millisecond)
 
 	// check hubstats
 	if len(h.Hub.Clients) != 1 {
@@ -104,7 +106,7 @@ func TestSendMessageViaWs(t *testing.T) {
 	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { wsHandler(closed, w, r, h) }))
 	defer s.Close()
 
-	time.Sleep(1 * time.Millisecond)
+	time.Sleep(2 * time.Millisecond)
 
 	// test harness on the sending side
 	r := reconws.New()
@@ -113,31 +115,57 @@ func TestSendMessageViaWs(t *testing.T) {
 
 	time.Sleep(1 * time.Millisecond)
 
-	// test - send a message :-
-	greeting := []byte("hello")
+	//messages we will use
+	greeting := []byte("hello") // from websocket to hub client, via agg
+	reply := []byte("howdy")    //from hub client to websocket, via agg
+
+	// set up the receiver in a separate goroutine to avoid the hub deleting this client
+
 	go func() {
-		m := &reconws.WsMessage{Data: greeting, Type: websocket.TextMessage}
-		r.Out <- *m
-		//fmt.Println("sent message")
+		//did message get to hub client?
+		select {
+		case <-time.After(10 * time.Millisecond):
+			t.Error("timed out")
+		case msg, ok := <-crx.Send:
+			if ok {
+				//fmt.Println("received message")
+				if bytes.Compare(msg.Data, greeting) != 0 {
+					t.Errorf("Greeting content unexpected; got/wanted %v/%v\n", string(msg.Data), string(greeting))
+				}
+				//reply
+				crx.Hub.Broadcast <- hub.Message{Sender: *crx, Sent: time.Now(), Data: reply, Type: websocket.TextMessage}
+
+			} else {
+				t.Error("channel not ok") //this test seems sensitive to timing off the sleeps, registration delay?
+			}
+		}
+
+		// did reply get to websocket client?
+		select {
+		case <-time.After(10 * time.Millisecond):
+			t.Error("timed out")
+		case msg, ok := <-r.In:
+			if ok {
+				if bytes.Compare(msg.Data, reply) != 0 {
+					t.Errorf("Reply content unexpected; got/wanted %v/%v\n", string(msg.Data), string(reply))
+				}
+			} else {
+				t.Error("channel not ok")
+			}
+		}
 	}()
 
 	time.Sleep(1 * time.Millisecond)
 
-	select {
-	case <-time.After(10 * time.Millisecond):
-		t.Error("timed out")
-	case msg, ok := <-crx.Send:
-		if ok {
-			//fmt.Println("received message")
-			if bytes.Compare(msg.Data, greeting) != 0 {
-				t.Errorf("Greeting content unexpected; got/wanted %v/%v\n", string(msg.Data), string(greeting))
-			}
-		} else {
-			t.Error("channel not ok")
-		}
-	}
+	// test - send a message :-
 
-	//	time.Sleep(time.Millisecond)
+	go func() {
+		m := &reconws.WsMessage{Data: greeting, Type: websocket.TextMessage}
+		r.Out <- *m
+	}()
+
+	// hang on long enough for both timeouts in the anonymous goroutine
+	time.Sleep(30 * time.Millisecond)
 
 	close(closed)
 	close(r.Stop)
