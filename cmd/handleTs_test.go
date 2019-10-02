@@ -14,7 +14,7 @@ import (
 	"github.com/timdrysdale/hub"
 )
 
-func TestTsFrameBoundaries(t *testing.T) {
+func TestHandleTsFrameBoundaries(t *testing.T) {
 	//
 	// +----------+       +----------+        +---------+             +----------+
 	// |          |       |          |        |         |             |          |

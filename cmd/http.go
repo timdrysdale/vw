@@ -11,11 +11,11 @@ import (
 )
 
 func (app *App) startHttp() {
-	app.WaitGroup.Add(1)
 	defer app.WaitGroup.Done()
 
 	log.WithField("port", app.Opts.Port).Debug("http.Server listening port set")
 
+	app.WaitGroup.Add(1)
 	srv := app.startHttpServer(app.Opts.Port)
 
 	log.Debug("Started http.Server")
@@ -41,7 +41,6 @@ func (app *App) startHttp() {
 } // startHttp
 
 func (app *App) startHttpServer(port int) *http.Server {
-	app.WaitGroup.Add(1)
 	defer app.WaitGroup.Done()
 
 	addr := fmt.Sprintf(":%d", port)
@@ -56,14 +55,8 @@ func (app *App) startHttpServer(port int) *http.Server {
 	router.HandleFunc("/ts", app.handleTs)
 	router.HandleFunc("/ws", app.handleWs)
 
-	/*	router.HandleFunc("/api/destinations/{id}/create", handleCreateDestination).Methods("POST")
-		router.HandleFunc("/api/destinations/{id}/delete", handleDeleteDestination).Methods
-		router.HandleFunc("/api/destinations/{id}/delete", handleDeleteDestination)
+	srv.Handler = router
 
-		http.HandleFunc("/api/stats", func(w http.ResponseWriter, r *http.Request) { apiHandler(w, r, a) })
-
-		http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) { indexHandler(closed, w, r, a.Hub) })
-	*/
 	app.WaitGroup.Add(1)
 	go func() {
 		defer app.WaitGroup.Done()

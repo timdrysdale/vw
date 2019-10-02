@@ -11,7 +11,7 @@ var unix = "foo\r\n"
 var windows = "foo\n"
 var cleaned = "foo"
 
-func TestClean(t *testing.T) {
+func TestUtilsClean(t *testing.T) {
 	if clean(unix) != clean(windows) {
 		log.Fatalf("did not clean strings %v %v\n", []byte(unix), []byte(windows))
 	}

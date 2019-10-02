@@ -69,6 +69,7 @@ var streamCmd = &cobra.Command{
 
 		go app.Websocket.Run(closed)
 
+		app.WaitGroup.Add(1)
 		go app.startHttp()
 
 		// take it easy, pal

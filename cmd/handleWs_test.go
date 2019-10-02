@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"bytes"
-	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -20,7 +19,7 @@ func init() {
 	log.SetLevel(log.ErrorLevel)
 }
 
-func TestSendMessageViaClient(t *testing.T) {
+func TestHandleWsSendMessageViaClient(t *testing.T) {
 
 	closed := make(chan struct{})
 
@@ -43,7 +42,6 @@ func TestSendMessageViaClient(t *testing.T) {
 	case <-time.After(10 * time.Millisecond):
 	case msg, ok := <-crx.Send:
 		if ok {
-			fmt.Println("Got message...")
 			if bytes.Compare(msg.Data, greeting) != 0 {
 				t.Errorf("Greeting content unexpected; got/wanted %v/%v\n", string(msg.Data), string(greeting))
 			}
@@ -51,7 +49,7 @@ func TestSendMessageViaClient(t *testing.T) {
 	}
 }
 
-func TestSendMessageViaWs(t *testing.T) {
+func TestHandleWsSendMessageViaWs(t *testing.T) {
 	// This was confusing when I came back to it, so here's a diagram:
 	//
 	//           +----------+       +----------+        +---------+             +----------+
@@ -169,7 +167,7 @@ func TestSendMessageViaWs(t *testing.T) {
 }
 
 // this test only shows that the httptest server is working ok
-func TestWsEcho(t *testing.T) {
+func TestHandleWsEcho(t *testing.T) {
 
 	r := reconws.New()
 
