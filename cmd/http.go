@@ -49,13 +49,19 @@ func (app *App) startHttpServer(port int) *http.Server {
 	var router = mux.NewRouter()
 
 	router.HandleFunc("/api", app.handleApi)
-	router.HandleFunc("/api/streams", app.handleStreamAllShow).Methods("GET")
-	router.HandleFunc("/api/streams/{stream}", app.handleStreamShow).Methods("GET")
-	router.HandleFunc("/api/streams/{stream}", app.handleStreamAdd).Methods("PUT", "POST", "UPDATE")
+	router.HandleFunc("/api/destinations", app.handleDestinationAdd).Methods("PUT", "POST", "UPDATE")
+	router.HandleFunc("/api/destinations/{id}", app.handleDestinationDelete).Methods("DELETE")
+	router.HandleFunc("/api/destinations/all", app.handleDestinationShowAll).Methods("GET")
+	router.HandleFunc("/api/destinations/all", app.handleDestinationDeleteAll).Methods("DELETE")
+	router.HandleFunc("/api/destinations/{id}", app.handleDestinationShow).Methods("GET")
+	router.HandleFunc("/api/streams", app.handleStreamAdd).Methods("PUT", "POST", "UPDATE")
 	router.HandleFunc("/api/streams/{stream}", app.handleStreamDelete).Methods("DELETE")
+	router.HandleFunc("/api/streams/all", app.handleStreamShowAll).Methods("GET")
+	router.HandleFunc("/api/streams/all", app.handleStreamDeleteAll).Methods("DELETE")
+	router.HandleFunc("/api/streams/{stream}", app.handleStreamShow).Methods("GET")
 	router.HandleFunc("/healthcheck", app.handleHealthcheck).Methods("GET")
-	router.HandleFunc("/ts", app.handleTs)
-	router.HandleFunc("/ws", app.handleWs)
+	router.HandleFunc("/ts/{feed}", app.handleTs)
+	router.HandleFunc("/ws/{feed}", app.handleWs)
 
 	srv.Handler = router
 
