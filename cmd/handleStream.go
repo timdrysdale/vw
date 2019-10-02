@@ -12,12 +12,27 @@ import (
 )
 
 func (app *App) handleStreamShowAll(w http.ResponseWriter, r *http.Request) {
-	json.NewEncoder(w).Encode("StreamAllShow")
-
+	output, err := json.Marshal(app.Hub.Rules)
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+	w.Header().Set("content-type", "application/json")
+	w.Write(output)
 }
 
 func (app *App) handleStreamShow(w http.ResponseWriter, r *http.Request) {
-	json.NewEncoder(w).Encode(fmt.Sprintf("StreamShow for %s", r.URL.Path))
+	vars := mux.Vars(r)
+	stream := vars["stream"]
+
+	output, err := json.Marshal(app.Hub.Rules[stream])
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+	w.Header().Set("content-type", "application/json")
+	w.Write(output)
+
 }
 
 /*  Add a new stream rule
