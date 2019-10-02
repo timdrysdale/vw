@@ -2,29 +2,32 @@ package cmd
 
 import (
 	"encoding/json"
-	"fmt"
 	"io/ioutil"
 	"net/http"
 
 	"github.com/gorilla/mux"
-	"github.com/timdrysdale/agg"
+	"github.com/timdrysdale/rwc"
 )
 
-func (app *App) handleStreamShowAll(w http.ResponseWriter, r *http.Request) {
-	output, err := json.Marshal(app.Hub.Rules)
+// curl -X GET http://localhost:8888/api/destinations/all
+func (app *App) handleDestinationShowAll(w http.ResponseWriter, r *http.Request) {
+
+	output, err := json.Marshal(app.Websocket.Rules)
 	if err != nil {
 		http.Error(w, err.Error(), 500)
 		return
 	}
 	w.Header().Set("content-type", "application/json")
 	w.Write(output)
+
 }
 
-func (app *App) handleStreamShow(w http.ResponseWriter, r *http.Request) {
+// curl -X GET http://localhost:8888/api/destinations/01
+func (app *App) handleDestinationShow(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
-	stream := vars["stream"]
+	id := vars["id"]
 
-	output, err := json.Marshal(app.Hub.Rules[stream])
+	output, err := json.Marshal(app.Websocket.Rules[id])
 	if err != nil {
 		http.Error(w, err.Error(), 500)
 		return
@@ -43,7 +46,7 @@ curl -X POST -H "Content-Type: application/json" \
 http://localhost:8888/api/streams/video
 
 */
-func (app *App) handleStreamAdd(w http.ResponseWriter, r *http.Request) {
+func (app *App) handleDestinationAdd(w http.ResponseWriter, r *http.Request) {
 
 	b, err := ioutil.ReadAll(r.Body)
 
@@ -53,14 +56,14 @@ func (app *App) handleStreamAdd(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), 500)
 		return
 	}
-	var rule agg.Rule
+	var rule rwc.Rule
 	err = json.Unmarshal(b, &rule)
 	if err != nil {
 		http.Error(w, err.Error(), 500)
 		return
 	}
 
-	app.Hub.Add <- rule
+	app.Websocket.Add <- rule
 
 	output, err := json.Marshal(rule)
 	if err != nil {
@@ -71,13 +74,14 @@ func (app *App) handleStreamAdd(w http.ResponseWriter, r *http.Request) {
 	w.Write(output)
 }
 
-func (app *App) handleStreamDelete(w http.ResponseWriter, r *http.Request) {
+// curl -X DELETE http://localhost:8888/api/destinations/00
+func (app *App) handleDestinationDelete(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
-	stream := vars["stream"]
+	id := vars["id"]
 
-	app.Hub.Delete <- stream
+	app.Websocket.Delete <- id
 
-	output, err := json.Marshal(stream)
+	output, err := json.Marshal(id)
 	if err != nil {
 		http.Error(w, err.Error(), 500)
 		return
@@ -86,7 +90,17 @@ func (app *App) handleStreamDelete(w http.ResponseWriter, r *http.Request) {
 	w.Write(output)
 }
 
-func (app *App) handleStreamDeleteAll(w http.ResponseWriter, r *http.Request) {
-	json.NewEncoder(w).Encode(fmt.Sprintf("StreamDelete for %s", r.URL.Path))
+func (app *App) handleDestinationDeleteAll(w http.ResponseWriter, r *http.Request) {
 
+	id := "deleteAll"
+
+	app.Websocket.Delete <- id
+
+	output, err := json.Marshal(id)
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+	w.Header().Set("content-type", "application/json")
+	w.Write(output)
 }

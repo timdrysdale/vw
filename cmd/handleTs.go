@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"bufio"
-	"fmt"
 	"io"
 	"net/http"
 	"strings"
@@ -18,8 +17,6 @@ func (app *App) handleTs(w http.ResponseWriter, r *http.Request) {
 
 	topic := strings.TrimPrefix(r.URL.Path, "/") //trim separately because net does not guarantee leading /
 	topic = strings.TrimPrefix(topic, "ts")      //strip ts because we're agnostic to which handler gets the feed
-
-	fmt.Printf("topic: %s\n", topic)
 
 	name := uuid.New().String()[:3]
 	myDetails := &hub.Client{Hub: app.Hub.Hub,
