@@ -5,10 +5,20 @@ import (
 	"sync"
 
 	"github.com/gorilla/websocket"
+	"github.com/timdrysdale/agg"
 	"github.com/timdrysdale/hub"
+	"github.com/timdrysdale/rwc"
 )
 
 //definitely used
+
+type App struct {
+	Closed    chan struct{}
+	Hub       *agg.Hub
+	Opts      Specification
+	Websocket *rwc.Hub
+	WaitGroup sync.WaitGroup
+}
 
 type WsHandlerClient struct {
 	Messages   *hub.Client

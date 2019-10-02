@@ -3,10 +3,10 @@ package cmd
 import (
 	"os"
 	"os/signal"
-	"sync"
 
 	"github.com/spf13/cobra"
 	"github.com/timdrysdale/agg"
+	"github.com/timdrysdale/rwc"
 
 	"github.com/kelseyhightower/envconfig"
 	log "github.com/sirupsen/logrus"
@@ -33,24 +33,20 @@ var streamCmd = &cobra.Command{
 	Long:  `capture video incoming to http and stream out over websockets`,
 	Run: func(cmd *cobra.Command, args []string) {
 
-		var s Specification
-		var wg sync.WaitGroup
+		app := &App{Hub: agg.New()}
 
 		// load configuration from environment variables VW_<var>
-		if err := envconfig.Process("vw", &s); err != nil {
+		if err := envconfig.Process("vw", &app.Opts); err != nil {
 			log.Fatal(err.Error())
 		}
 
 		//set log format
 		log.SetFormatter(&log.JSONFormatter{})
 		log.SetOutput(os.Stdout)
-		log.SetLevel(sanitiseLevel(s.LogLevel))
+		log.SetLevel(sanitiseLevel(app.Opts.LogLevel))
 
 		//log configuration
-		log.WithField("s", s).Info("Specification")
-
-		// declare channels
-		httpRunning := make(chan struct{})
+		log.WithField("s", app.Opts).Info("Specification")
 
 		// trap SIGINT
 		channelSignal := make(chan os.Signal, 1)
@@ -59,28 +55,24 @@ var streamCmd = &cobra.Command{
 		go func() {
 			for _ = range channelSignal {
 				close(closed)
-				wg.Wait()
+				app.WaitGroup.Wait()
 				os.Exit(1)
 			}
 		}()
 
-		httpOpts := HTTPOptions{Port: s.Port, WaitMS: s.HttpWaitMs, FlushMS: s.HttpFlushMs, TimeoutMS: s.HttpTimeoutMs}
+		//TODO add waitgroup into agg/hub and rwc
 
-		//clientOpts := ClientOptions{BufferLength: s.ClientBufferLength, TimeoutMS: s.ClientTimeoutMs}
+		//Websocket has to be instantiated AFTER the Hub
+		app.Websocket = rwc.New(app.Hub)
 
-		h := agg.New()
-		go h.RunWithStats(closed)
+		go app.Hub.RunWithStats(closed)
 
-		wg.Add(1)
-		go startHttp(closed, &wg, httpOpts, h, httpRunning)
+		go app.Websocket.Run(closed)
 
-		<-httpRunning //wait for http server to start
+		go app.startHttp()
 
-		//wg.Add(2)
-
-		//go startWriters(closed, &wg, writers, h)
-
-		wg.Wait()
+		// take it easy, pal
+		app.WaitGroup.Wait()
 
 	},
 }

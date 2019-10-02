@@ -14,7 +14,7 @@ import (
 	"github.com/timdrysdale/hub"
 )
 
-func TestMessageBoundaries(t *testing.T) {
+func TestTsFrameBoundaries(t *testing.T) {
 	//
 	// +----------+       +----------+        +---------+             +----------+
 	// |          |       |          |        |         |             |          |
@@ -40,26 +40,25 @@ func TestMessageBoundaries(t *testing.T) {
 	// This also checks that the /ts is stripped from the path correctly so that the video
 	// is forwarded to the right topic
 
-	closed := make(chan struct{})
-
 	// Test harness, receiving side (agg, and hub.Client)
-	h := agg.New()
-	go h.Run(closed)
+	app := App{Closed: make(chan struct{}), Hub: agg.New()}
+
+	go app.Hub.Run(app.Closed)
 
 	time.Sleep(2 * time.Millisecond)
 
-	crx := &hub.Client{Hub: h.Hub, Name: "rx", Topic: "/video", Send: make(chan hub.Message), Stats: hub.NewClientStats()}
-	h.Register <- crx
+	crx := &hub.Client{Hub: app.Hub.Hub, Name: "rx", Topic: "/video", Send: make(chan hub.Message), Stats: hub.NewClientStats()}
+	app.Hub.Register <- crx
 
 	time.Sleep(2 * time.Millisecond)
 
 	// check hubstats to see if registered ok
-	if len(h.Hub.Clients) != 1 {
-		t.Errorf("Wrong number of clients registered to hub wanted/got %d/%d", 1, len(h.Hub.Clients))
+	if len(app.Hub.Hub.Clients) != 1 {
+		t.Errorf("Wrong number of clients registered to hub wanted/got %d/%d", 1, len(app.Hub.Hub.Clients))
 	}
 
 	// server to action the handler under test
-	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { tsHandler(closed, w, r, h) }))
+	s := httptest.NewServer(http.HandlerFunc(app.handleTs))
 	defer s.Close()
 
 	time.Sleep(2 * time.Millisecond)
@@ -112,7 +111,7 @@ func TestMessageBoundaries(t *testing.T) {
 	// hang on long enough for timeouts in the anonymous goroutine to trigger
 	time.Sleep(300 * time.Millisecond)
 
-	close(closed)
+	close(app.Closed)
 
 	time.Sleep(time.Millisecond) //allow time for goroutines to end before starting a new http server
 }

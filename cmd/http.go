@@ -4,34 +4,30 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	"sync"
 	"time"
 
+	"github.com/gorilla/mux"
 	log "github.com/sirupsen/logrus"
-	"github.com/timdrysdale/agg"
 )
 
-func startHttp(closed <-chan struct{}, wg *sync.WaitGroup, opts HTTPOptions, h *agg.Hub, running chan struct{}) {
-	defer wg.Done()
+func (app *App) startHttp() {
+	app.WaitGroup.Add(1)
+	defer app.WaitGroup.Done()
 
-	wg.Add(1)
+	log.WithField("port", app.Opts.Port).Debug("http.Server listening port set")
 
-	log.WithField("port", opts.Port).Debug("http.Server listening port set")
-
-	srv := startHttpServer(closed, wg, opts.Port, opts, h)
-
-	close(running) //signal that we're running
+	srv := app.startHttpServer(app.Opts.Port)
 
 	log.Debug("Started http.Server")
 
-	<-closed // wait for shutdown
+	<-app.Closed // wait for shutdown
 
 	log.Debug("Starting to close http.Server")
 	if err := srv.Shutdown(context.TODO()); err != nil {
 		log.WithField("error", err).Fatal("Failure/timeout shutting down the http.Server gracefully")
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second) //TODO make configurable
+	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(app.Opts.HttpWaitMs)*time.Millisecond)
 	defer cancel()
 
 	srv.SetKeepAlivesEnabled(false)
@@ -44,18 +40,33 @@ func startHttp(closed <-chan struct{}, wg *sync.WaitGroup, opts HTTPOptions, h *
 	return
 } // startHttp
 
-func startHttpServer(closed <-chan struct{}, wg *sync.WaitGroup, port int, opts HTTPOptions, h *agg.Hub) *http.Server {
-	defer wg.Done()
+func (app *App) startHttpServer(port int) *http.Server {
+	app.WaitGroup.Add(1)
+	defer app.WaitGroup.Done()
+
 	addr := fmt.Sprintf(":%d", port)
 	srv := &http.Server{Addr: addr}
 
-	http.HandleFunc("/ts", func(w http.ResponseWriter, r *http.Request) { tsHandler(closed, w, r, h) })
-	http.HandleFunc("/ws", func(w http.ResponseWriter, r *http.Request) { wsHandler(closed, w, r, h) })
-	//http.HandleFunc("/api", func(w http.ResponseWriter, r *http.Request) { apiHandler(closed, w, r, opts, h) })
+	var router = mux.NewRouter()
 
-	wg.Add(1)
+	router.HandleFunc("/api", app.handleApi)
+	router.HandleFunc("/api/streams/{stream}", app.handleStreamShow).Methods("GET")
+	router.HandleFunc("/api/streams/{stream}", app.handleStreamAdd).Methods("PUT", "UPDATE")
+	router.HandleFunc("/api/streams/{stream}", app.handleStreamDelete).Methods("DELETE")
+	router.HandleFunc("/ts", app.handleTs)
+	router.HandleFunc("/ws", app.handleWs)
+
+	/*	router.HandleFunc("/api/destinations/{id}/create", handleCreateDestination).Methods("POST")
+		router.HandleFunc("/api/destinations/{id}/delete", handleDeleteDestination).Methods
+		router.HandleFunc("/api/destinations/{id}/delete", handleDeleteDestination)
+
+		http.HandleFunc("/api/stats", func(w http.ResponseWriter, r *http.Request) { apiHandler(w, r, a) })
+
+		http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) { indexHandler(closed, w, r, a.Hub) })
+	*/
+	app.WaitGroup.Add(1)
 	go func() {
-		defer wg.Done()
+		defer app.WaitGroup.Done()
 
 		//https://stackoverflow.com/questions/39320025/how-to-stop-http-listenandserve
 		// returns ErrServerClosed on graceful close

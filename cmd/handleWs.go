@@ -8,7 +8,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
 	log "github.com/sirupsen/logrus"
-	"github.com/timdrysdale/agg"
 	"github.com/timdrysdale/hub"
 )
 
@@ -39,7 +38,7 @@ var upgrader = websocket.Upgrader{
 	CheckOrigin:     func(r *http.Request) bool { return true },
 }
 
-func wsHandler(closed <-chan struct{}, w http.ResponseWriter, r *http.Request, h *agg.Hub) {
+func (app *App) handleWs(w http.ResponseWriter, r *http.Request) {
 
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
@@ -50,7 +49,7 @@ func wsHandler(closed <-chan struct{}, w http.ResponseWriter, r *http.Request, h
 	topic := strings.TrimPrefix(r.URL.Path, "/") //trim separately because net does not guarantee leading /
 	topic = strings.TrimPrefix(topic, "ws")      //strip ws because we're agnostic to which handler gets the feed
 
-	messageClient := &hub.Client{Hub: h.Hub,
+	messageClient := &hub.Client{Hub: app.Hub.Hub,
 		Name:  uuid.New().String()[:3],
 		Send:  make(chan hub.Message),
 		Stats: hub.NewClientStats(),
@@ -64,11 +63,11 @@ func wsHandler(closed <-chan struct{}, w http.ResponseWriter, r *http.Request, h
 		RemoteAddr: r.Header.Get("X-Forwarded-For"),
 	}
 
-	h.Register <- client.Messages
+	app.Hub.Register <- client.Messages
 
 	// Allow collection of memory referenced by the caller by doing all work in
 	// new goroutines.
-	go client.writePump(closed)
+	go client.writePump(app.Closed)
 	go client.readPump()
 
 }

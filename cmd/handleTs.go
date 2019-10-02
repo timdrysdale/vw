@@ -11,11 +11,10 @@ import (
 	"github.com/gobwas/ws"
 	"github.com/google/uuid"
 	log "github.com/sirupsen/logrus"
-	"github.com/timdrysdale/agg"
 	"github.com/timdrysdale/hub"
 )
 
-func tsHandler(closed <-chan struct{}, w http.ResponseWriter, r *http.Request, h *agg.Hub) {
+func (app *App) handleTs(w http.ResponseWriter, r *http.Request) {
 
 	topic := strings.TrimPrefix(r.URL.Path, "/") //trim separately because net does not guarantee leading /
 	topic = strings.TrimPrefix(topic, "ts")      //strip ts because we're agnostic to which handler gets the feed
@@ -23,7 +22,7 @@ func tsHandler(closed <-chan struct{}, w http.ResponseWriter, r *http.Request, h
 	fmt.Printf("topic: %s\n", topic)
 
 	name := uuid.New().String()[:3]
-	myDetails := &hub.Client{Hub: h.Hub,
+	myDetails := &hub.Client{Hub: app.Hub.Hub,
 		Name:  name,
 		Send:  make(chan hub.Message),
 		Stats: hub.NewClientStats(),
@@ -66,7 +65,7 @@ func tsHandler(closed <-chan struct{}, w http.ResponseWriter, r *http.Request, h
 
 		for {
 
-			tCh <- 0 //kick the monitoring routine
+			tCh <- 0 //tell the monitoring routine we're alive
 
 			n, err := io.ReadAtLeast(reader, glob, 1)
 
@@ -87,7 +86,7 @@ func tsHandler(closed <-chan struct{}, w http.ResponseWriter, r *http.Request, h
 
 				select {
 
-				case <-closed:
+				case <-app.Closed:
 
 					return //game over if closed
 
@@ -126,10 +125,10 @@ func tsHandler(closed <-chan struct{}, w http.ResponseWriter, r *http.Request, h
 
 			if err == nil && n > 0 {
 				msg := hub.Message{Sender: *myDetails, Type: int(ws.OpBinary), Data: frame, Sent: time.Now()}
-				h.Broadcast <- msg
+				app.Hub.Broadcast <- msg
 			}
 
-		case <-closed:
+		case <-app.Closed:
 			log.WithFields(log.Fields{"Name": name, "Topic": topic}).Info("http.muxHandler closed")
 			return
 		}
