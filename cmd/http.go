@@ -49,9 +49,11 @@ func (app *App) startHttpServer(port int) *http.Server {
 	var router = mux.NewRouter()
 
 	router.HandleFunc("/api", app.handleApi)
+	router.HandleFunc("/api/streams", app.handleStreamAllShow).Methods("GET")
 	router.HandleFunc("/api/streams/{stream}", app.handleStreamShow).Methods("GET")
-	router.HandleFunc("/api/streams/{stream}", app.handleStreamAdd).Methods("PUT", "UPDATE")
+	router.HandleFunc("/api/streams/{stream}", app.handleStreamAdd).Methods("PUT", "POST", "UPDATE")
 	router.HandleFunc("/api/streams/{stream}", app.handleStreamDelete).Methods("DELETE")
+	router.HandleFunc("/healthcheck", app.handleHealthcheck).Methods("GET")
 	router.HandleFunc("/ts", app.handleTs)
 	router.HandleFunc("/ws", app.handleWs)
 
