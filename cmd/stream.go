@@ -14,7 +14,7 @@ import (
 
 type Specification struct {
 	Port               int    `default:"8888"`
-	LogLevel           string `split_words:"true" default:"INFO"`
+	LogLevel           string `split_words:"true" default:"WARN"`
 	MuxBufferLength    int    `default:"10"`
 	ClientBufferLength int    `default:"5"`
 	ClientTimeoutMs    int    `default:"1000"`
@@ -34,10 +34,13 @@ var streamCmd = &cobra.Command{
 	Short: "stream video",
 	Long:  `capture video incoming to http and stream out over websockets`,
 	Run: func(cmd *cobra.Command, args []string) {
+		//Websocket has to be instantiated AFTER the Hub
+		app = App{Hub: agg.New(), Closed: make(chan struct{})}
+		app.Websocket = rwc.New(app.Hub)
 
 		// load configuration from environment variables VW_<var>
 		if err := envconfig.Process("vw", &app.Opts); err != nil {
-			log.Fatal(err.Error())
+			log.Fatal("Configuration Failed", err.Error())
 		}
 
 		//set log format
@@ -61,10 +64,6 @@ var streamCmd = &cobra.Command{
 		}()
 
 		//TODO add waitgroup into agg/hub and rwc
-
-		//Websocket has to be instantiated AFTER the Hub
-		app = App{Hub: agg.New(), Closed: make(chan struct{})}
-		app.Websocket = rwc.New(app.Hub)
 
 		go app.Hub.RunWithStats(closed)
 

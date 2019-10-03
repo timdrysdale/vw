@@ -12,7 +12,7 @@ import (
 
 func (app *App) startHttp() {
 	defer app.WaitGroup.Done()
-
+	log.WithField("opts", app.Opts).Debug("http.Server looking at opts....")
 	log.WithField("port", app.Opts.Port).Debug("http.Server listening port set")
 
 	srv := app.startHttpServer(app.Opts.Port)

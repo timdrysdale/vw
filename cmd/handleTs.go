@@ -56,6 +56,16 @@ func (app *App) handleTs(w http.ResponseWriter, r *http.Request) {
 	//after 23.267µs got 101 bytes
 	//after 23.976µs got 49 bytes
 
+	// drain but ignore messages from the hub
+	go func() {
+		for {
+			select {
+			case <-myDetails.Send:
+			case <-app.Closed:
+			}
+		}
+	}()
+
 	// Read from the buffer, blocking if empty
 	go func() {
 

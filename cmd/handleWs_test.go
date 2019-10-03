@@ -82,6 +82,7 @@ func TestHandleWsSendMessageViaWs(t *testing.T) {
 
 	// Test harness, receiving side (agg, and hub.Client)
 	app := App{Hub: agg.New(), Closed: make(chan struct{})}
+	defer close(app.Closed)
 	go app.Hub.Run(app.Closed)
 
 	time.Sleep(2 * time.Millisecond)
@@ -160,10 +161,10 @@ func TestHandleWsSendMessageViaWs(t *testing.T) {
 	// hang on long enough for both timeouts in the anonymous goroutine
 	time.Sleep(30 * time.Millisecond)
 
-	close(app.Closed)
+	//close(app.Closed)
 	close(r.Stop)
 
-	time.Sleep(time.Millisecond) //allow time for goroutines to end before starting a new http server
+	//time.Sleep(1000 * time.Millisecond) //allow time for goroutines to end before starting a new http server
 }
 
 // this test only shows that the httptest server is working ok
