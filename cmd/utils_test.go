@@ -5,6 +5,9 @@ import (
 	"io/ioutil"
 	"log"
 	"testing"
+
+	"github.com/timdrysdale/agg"
+	"github.com/timdrysdale/rwc"
 )
 
 var unix = "foo\r\n"
@@ -30,4 +33,14 @@ func writeDataFile(size int, name string) ([]byte, error) {
 
 	return data, err
 
+}
+
+func testApp(running bool) *App {
+	a := &App{Hub: agg.New(), Closed: make(chan struct{})}
+	a.Websocket = rwc.New(a.Hub)
+	if running {
+		go a.Hub.Run(a.Closed)
+		go a.Websocket.Run(a.Closed)
+	}
+	return a
 }
