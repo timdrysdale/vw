@@ -1,45 +1,118 @@
 package cmd
 
 import (
-	"bytes"
 	"fmt"
+	"net/http"
+	"net/http/httptest"
+	"net/url"
 	"os/exec"
+	"strings"
 	"testing"
+	"time"
+
+	"github.com/timdrysdale/agg"
+	"github.com/timdrysdale/rwc"
 )
 
-//curl  --request POST --data-binary @bin.dat http://localhost:${VW_PORT}/ts/test
-
 func TestStream(t *testing.T) {
+	//
+	//  This integration test is intended to show a file streaming
+	//  to a websocket server, using elements of existing tests
+	//  but joined together this time ...
+	//
+	//  +------+   +------+   +------+    +------+    +------+
+	//  |      |   |      |   |      |    |      |    |      |
+	//  |ffmpeg+--->handle+--->Agg   +---->rwc   +--->+ wss  |
+	//  |      |   |Ts    |   |      |    |      |    |      |
+	//  +-^----+   +------+   +-^----+    +-^----+    +-----++
+	//    |                     |           |               |
+	//    |                     |           |               |
+	//    +                     +           +               v
+	//  sample.ts             stream      destination    check
+	//                        rule        rule           frame
+	//                                                   sizes
+	//
 
-	t.Skip("Skipping - Need a way to configure vw before this test can be run :-)")
+	// start up our streaming programme
+	go streamCmd.Run(streamCmd, nil) //streamCmd will populate the global app
 
-	if testing.Short() {
-		t.Skip("skipping integration test")
-	}
+	time.Sleep(100 * time.Millisecond)
 
-	cmd := exec.Command("rm", "./bin.dat")
+	// Set up our destination wss server and frame size check
+	msgSize := make(chan int)
+	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { reportSize(w, r, msgSize) }))
+	defer s.Close()
+
+	go func() {
+		// did frame sizes come through correctly?
+		frameSizes := []int{15980,
+			20116,
+			17296,
+			16544,
+			18988,
+			15792,
+		}
+
+		time.Sleep(100 * time.Millisecond) //give ffmpeg time to start before looking for frames
+
+		for i := 0; i < len(frameSizes); i++ {
+			select {
+			case <-time.After(100 * time.Millisecond):
+				t.Errorf("timed out on frame  %d", i)
+			case frameSize, ok := <-msgSize:
+				if ok {
+					if frameSize != frameSizes[i] {
+						t.Errorf("Frame size %d  wrong; got/wanted %v/%v\n", i, frameSize, frameSizes[i])
+					}
+				} else {
+					t.Error("channel not ok")
+				}
+			}
+		}
+	}()
+
+	time.Sleep(1 * time.Millisecond)
+
+	// set up our rules (we've not got audio, but use stream for more thorough test
+	streamRule := agg.Rule{Stream: "/stream/large", Feeds: []string{"video0", "audio"}}
+	app.Hub.Add <- streamRule
+
+	u, _ := url.Parse(s.URL)
+	wssUrl := fmt.Sprintf("ws://localhost:%s", u.Port())
+	destinationRule := rwc.Rule{Stream: "/stream/large", Destination: wssUrl, Id: "00"}
+	app.Websocket.Add <- destinationRule
+
+	time.Sleep(1 * time.Millisecond)
+
+	// stream the video
+	feedUrl := "http://localhost:8888/ts/video0" //port is default - streamCmd may pick up on envvars though
+	args := fmt.Sprintf("-re -i sample.ts -f mpegts -codec:v mpeg1video -s 640x480 -b:v 1000k -r 24 -bf 0 %s", feedUrl)
+	argSlice := strings.Split(args, " ")
+	cmd := exec.Command("ffmpeg", argSlice...)
 	err := cmd.Run()
-	cmd = exec.Command("rm", "./rx.dat")
-	err = cmd.Run()
-
-	_, err = writeDataFile(1024000, "./bin.dat")
 	if err != nil {
-		fmt.Printf("Error writing data file %v", err)
+		t.Error("ffmpeg", err)
 	}
 
-	t.Error("TestStream not implemented") // stream bin.dat here....
+	// hang on long enough for timeouts in the anonymous goroutine to trigger
+	time.Sleep(300 * time.Millisecond)
 
-	var outbuf bytes.Buffer
+	close(app.Closed)
 
-	cmd = exec.Command("diff", "./bin.dat", "./rx.dat")
-	cmd.Stdout = &outbuf
-	err = cmd.Run()
-	stdout := outbuf.String()
-	if stdout != "" {
-		t.Errorf("Data sent and received is different: %v", stdout)
+	time.Sleep(time.Millisecond) //allow time for goroutines to end before starting a new http server
+}
+
+func reportSize(w http.ResponseWriter, r *http.Request, msgSize chan int) {
+	c, err := testUpgrader.Upgrade(w, r, nil)
+	if err != nil {
+		return
 	}
-	cmd = exec.Command("rm", "./bin.dat")
-	err = cmd.Run()
-	cmd = exec.Command("rm", "./rx.dat")
-	err = cmd.Run()
+	defer c.Close()
+	for {
+		_, message, err := c.ReadMessage()
+		if err != nil {
+			break
+		}
+		msgSize <- len(message)
+	}
 }

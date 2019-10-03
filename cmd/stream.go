@@ -27,13 +27,13 @@ func init() {
 	rootCmd.AddCommand(streamCmd)
 }
 
+var app App
+
 var streamCmd = &cobra.Command{
 	Use:   "stream",
 	Short: "stream video",
 	Long:  `capture video incoming to http and stream out over websockets`,
 	Run: func(cmd *cobra.Command, args []string) {
-
-		app := &App{Hub: agg.New()}
 
 		// load configuration from environment variables VW_<var>
 		if err := envconfig.Process("vw", &app.Opts); err != nil {
@@ -63,6 +63,7 @@ var streamCmd = &cobra.Command{
 		//TODO add waitgroup into agg/hub and rwc
 
 		//Websocket has to be instantiated AFTER the Hub
+		app = App{Hub: agg.New(), Closed: make(chan struct{})}
 		app.Websocket = rwc.New(app.Hub)
 
 		go app.Hub.RunWithStats(closed)

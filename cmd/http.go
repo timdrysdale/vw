@@ -15,7 +15,6 @@ func (app *App) startHttp() {
 
 	log.WithField("port", app.Opts.Port).Debug("http.Server listening port set")
 
-	app.WaitGroup.Add(1)
 	srv := app.startHttpServer(app.Opts.Port)
 
 	log.Debug("Started http.Server")
@@ -41,7 +40,6 @@ func (app *App) startHttp() {
 } // startHttp
 
 func (app *App) startHttpServer(port int) *http.Server {
-	defer app.WaitGroup.Done()
 
 	addr := fmt.Sprintf(":%d", port)
 	srv := &http.Server{Addr: addr}
@@ -65,10 +63,7 @@ func (app *App) startHttpServer(port int) *http.Server {
 
 	srv.Handler = router
 
-	app.WaitGroup.Add(1)
 	go func() {
-		defer app.WaitGroup.Done()
-
 		//https://stackoverflow.com/questions/39320025/how-to-stop-http-listenandserve
 		// returns ErrServerClosed on graceful close
 		if err := srv.ListenAndServe(); err != http.ErrServerClosed {
