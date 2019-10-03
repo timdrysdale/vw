@@ -6,6 +6,7 @@ import (
 	"net/http"
 
 	"github.com/gorilla/mux"
+	log "github.com/sirupsen/logrus"
 	"github.com/timdrysdale/agg"
 )
 
@@ -55,6 +56,7 @@ func (app *App) handleStreamAdd(w http.ResponseWriter, r *http.Request) {
 	defer r.Body.Close()
 
 	if err != nil {
+		log.Error(err)
 		http.Error(w, err.Error(), 500)
 		return
 	}

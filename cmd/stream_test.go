@@ -9,9 +9,6 @@ import (
 	"strings"
 	"testing"
 	"time"
-
-	"github.com/timdrysdale/agg"
-	"github.com/timdrysdale/rwc"
 )
 
 func TestStream(t *testing.T) {
@@ -72,18 +69,36 @@ func TestStream(t *testing.T) {
 	}()
 
 	time.Sleep(1 * time.Millisecond)
+	/*
+			// set up our rules (we've not got audio, but use stream for more thorough test
+			streamRule := agg.Rule{Stream: "/stream/large", Feeds: []string{"video0", "audio"}}
+			app.Hub.Add <- streamRule
 
-	// set up our rules (we've not got audio, but use stream for more thorough test
-	streamRule := agg.Rule{Stream: "/stream/large", Feeds: []string{"video0", "audio"}}
-	app.Hub.Add <- streamRule
+		u, _ := url.Parse(s.URL)
+		wssUrl := fmt.Sprintf("ws://localhost:%s", u.Port())
+		destinationRule := rwc.Rule{Stream: "/stream/large", Destination: wssUrl, Id: "00"}
+		app.Websocket.Add <- destinationRule
+
+		time.Sleep(1 * time.Millisecond)
+	*/
 
 	u, _ := url.Parse(s.URL)
-	wssUrl := fmt.Sprintf("ws://localhost:%s", u.Port())
-	destinationRule := rwc.Rule{Stream: "/stream/large", Destination: wssUrl, Id: "00"}
-	app.Websocket.Add <- destinationRule
 
-	time.Sleep(1 * time.Millisecond)
+	dest := fmt.Sprintf("http://localhost:%s/ts/video", u.Port())
 
+	args := fmt.Sprintf("-re -i sample.ts -f mpegts -codec:v mpeg1video -s 640x480 -b:v 1000k -r 24 -bf 0 %s", dest)
+
+	argSlice := strings.Split(args, " ")
+
+	cmd := exec.Command("ffmpeg", argSlice...)
+
+	err := cmd.Run()
+
+	if err != nil {
+		t.Error("ffmpeg", err)
+	}
+
+	/* NEW ATTEMPT
 	// stream the video
 	feedUrl := "http://localhost:8888/ts/video0" //port is default - streamCmd may pick up on envvars though
 	args := fmt.Sprintf("-re -i sample.ts -f mpegts -codec:v mpeg1video -s 640x480 -b:v 1000k -r 24 -bf 0 %s", feedUrl)
@@ -93,13 +108,14 @@ func TestStream(t *testing.T) {
 	if err != nil {
 		t.Error("ffmpeg", err)
 	}
-
+	*/
 	// hang on long enough for timeouts in the anonymous goroutine to trigger
 	time.Sleep(300 * time.Millisecond)
 
 	close(app.Closed)
 
 	time.Sleep(time.Millisecond) //allow time for goroutines to end before starting a new http server
+
 }
 
 func reportSize(w http.ResponseWriter, r *http.Request, msgSize chan int) {

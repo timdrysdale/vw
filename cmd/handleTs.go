@@ -4,19 +4,18 @@ import (
 	"bufio"
 	"io"
 	"net/http"
-	"strings"
 	"time"
 
 	"github.com/gobwas/ws"
 	"github.com/google/uuid"
+	"github.com/gorilla/mux"
 	log "github.com/sirupsen/logrus"
 	"github.com/timdrysdale/hub"
 )
 
 func (app *App) handleTs(w http.ResponseWriter, r *http.Request) {
-
-	topic := strings.TrimPrefix(r.URL.Path, "/") //trim separately because net does not guarantee leading /
-	topic = strings.TrimPrefix(topic, "ts")      //strip ts because we're agnostic to which handler gets the feed
+	vars := mux.Vars(r)
+	topic := vars["feed"]
 
 	name := uuid.New().String()[:3]
 	myDetails := &hub.Client{Hub: app.Hub.Hub,

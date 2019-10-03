@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/timdrysdale/agg"
+	"github.com/gorilla/mux"
 	"github.com/timdrysdale/hub"
 )
 
@@ -41,13 +41,14 @@ func TestHandleTsFrameBoundaries(t *testing.T) {
 	// is forwarded to the right topic
 
 	// Test harness, receiving side (agg, and hub.Client)
-	app := App{Closed: make(chan struct{}), Hub: agg.New()}
+	//app := App{Closed: make(chan struct{}), Hub: agg.New()}
+	//go app.Hub.Run(app.Closed)
 
-	go app.Hub.Run(app.Closed)
+	app := testApp(true)
 
 	time.Sleep(2 * time.Millisecond)
 
-	crx := &hub.Client{Hub: app.Hub.Hub, Name: "rx", Topic: "/video", Send: make(chan hub.Message), Stats: hub.NewClientStats()}
+	crx := &hub.Client{Hub: app.Hub.Hub, Name: "rx", Topic: "video", Send: make(chan hub.Message), Stats: hub.NewClientStats()}
 	app.Hub.Register <- crx
 
 	time.Sleep(2 * time.Millisecond)
@@ -58,7 +59,10 @@ func TestHandleTsFrameBoundaries(t *testing.T) {
 	}
 
 	// server to action the handler under test
-	s := httptest.NewServer(http.HandlerFunc(app.handleTs))
+	r := mux.NewRouter()
+	r.HandleFunc("/ts/{feed}", http.HandlerFunc(app.handleTs))
+
+	s := httptest.NewServer(r)
 	defer s.Close()
 
 	time.Sleep(2 * time.Millisecond)
@@ -69,7 +73,7 @@ func TestHandleTsFrameBoundaries(t *testing.T) {
 		17296,
 		16544,
 		18988,
-		15792,
+		//15792,
 	}
 
 	go func() {
