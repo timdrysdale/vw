@@ -157,7 +157,7 @@ func TestStreamUsingStreamCmd(t *testing.T) {
 			18988,
 		}
 
-		time.Sleep(2000 * time.Millisecond) //give ffmpeg time to start before looking for frames
+		time.Sleep(500 * time.Millisecond) //give ffmpeg time to start before looking for frames
 
 		for i := 0; i < len(frameSizes); i++ {
 			select {
@@ -199,7 +199,7 @@ func TestStreamUsingStreamCmd(t *testing.T) {
 	}
 
 	// hang on long enough for timeouts in the anonymous goroutine to trigger
-	time.Sleep(3 * time.Second)
+	time.Sleep(1 * time.Second)
 
 	close(app.Closed)
 
