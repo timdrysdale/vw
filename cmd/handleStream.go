@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"encoding/json"
-	"fmt"
 	"io/ioutil"
 	"net/http"
 
@@ -24,13 +23,19 @@ func (app *App) handleStreamShow(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	stream := vars["stream"]
 
-	output, err := json.Marshal(app.Hub.Rules[stream])
-	if err != nil {
-		http.Error(w, err.Error(), 500)
+	if feeds, ok := app.Hub.Rules[stream]; ok {
+
+		output, err := json.Marshal(feeds)
+		if err != nil {
+			http.Error(w, err.Error(), 500)
+			return
+		}
+		w.Header().Set("content-type", "application/json")
+		w.Write(output)
+	} else {
+		http.Error(w, "Stream not found", 404)
 		return
 	}
-	w.Header().Set("content-type", "application/json")
-	w.Write(output)
 
 }
 
@@ -87,6 +92,17 @@ func (app *App) handleStreamDelete(w http.ResponseWriter, r *http.Request) {
 }
 
 func (app *App) handleStreamDeleteAll(w http.ResponseWriter, r *http.Request) {
-	json.NewEncoder(w).Encode(fmt.Sprintf("StreamDelete for %s", r.URL.Path))
+
+	stream := "deleteAll"
+
+	app.Hub.Delete <- stream
+
+	output, err := json.Marshal(stream)
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+	w.Header().Set("content-type", "application/json")
+	w.Write(output)
 
 }
