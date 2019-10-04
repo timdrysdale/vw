@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"net/http"
 
@@ -79,6 +80,7 @@ func (app *App) handleDestinationDelete(w http.ResponseWriter, r *http.Request) 
 	vars := mux.Vars(r)
 	id := vars["id"]
 
+	fmt.Printf("handleDestinationDelete id %v\n", id)
 	app.Websocket.Delete <- id
 
 	output, err := json.Marshal(id)
