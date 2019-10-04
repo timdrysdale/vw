@@ -4,6 +4,8 @@ import (
 	_ "net/http/pprof"
 	"os"
 	"os/signal"
+	"runtime/pprof"
+	"time"
 
 	"github.com/spf13/cobra"
 	"github.com/timdrysdale/agg"
@@ -22,7 +24,7 @@ type Specification struct {
 	HttpWaitMs         int    `default:"5000"`
 	HttpFlushMs        int    `default:"5"`
 	HttpTimeoutMs      int    `default:"1000"`
-	//CpuProfile         string `default:""`
+	CpuProfile         string `default:""`
 }
 
 func init() {
@@ -46,7 +48,7 @@ var streamCmd = &cobra.Command{
 			log.Fatal("Configuration Failed", err.Error())
 		}
 
-		/*if app.Opts.CpuProfile != "" {
+		if app.Opts.CpuProfile != "" {
 
 			f, err := os.Create(app.Opts.CpuProfile)
 
@@ -66,7 +68,7 @@ var streamCmd = &cobra.Command{
 				pprof.StopCPUProfile()
 
 			}()
-		} */
+		}
 
 		//set log format
 		log.SetFormatter(&log.JSONFormatter{})
@@ -78,11 +80,10 @@ var streamCmd = &cobra.Command{
 
 		// trap SIGINT
 		channelSignal := make(chan os.Signal, 1)
-		closed := make(chan struct{})
 		signal.Notify(channelSignal, os.Interrupt)
 		go func() {
 			for _ = range channelSignal {
-				close(closed)
+				close(app.Closed)
 				app.WaitGroup.Wait()
 				os.Exit(1)
 			}
@@ -90,9 +91,9 @@ var streamCmd = &cobra.Command{
 
 		//TODO add waitgroup into agg/hub and rwc
 
-		go app.Hub.RunWithStats(closed)
+		go app.Hub.RunWithStats(app.Closed)
 
-		go app.Websocket.Run(closed)
+		go app.Websocket.Run(app.Closed)
 
 		app.WaitGroup.Add(1)
 		go app.startHttp()
