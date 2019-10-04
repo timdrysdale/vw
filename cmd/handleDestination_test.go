@@ -38,7 +38,8 @@ func TestHandleDestinationAdd(t *testing.T) {
 				status, http.StatusOK)
 		}
 
-		expected := string(rule)
+		// note prefix / on stream is removed
+		expected := `{"id":"00","stream":"stream/large","destination":"wss://video.practable.io:443/large"}`
 		if rr.Body.String() != expected {
 			t.Errorf("handler returned unexpected body: got %v want %v",
 				rr.Body.String(), expected)
@@ -47,7 +48,7 @@ func TestHandleDestinationAdd(t *testing.T) {
 
 	got := <-a.Websocket.Add
 
-	if got.Stream != "/stream/large" {
+	if got.Stream != "stream/large" {
 		t.Error("Wrong stream")
 	}
 	if got.Destination != "wss://video.practable.io:443/large" {

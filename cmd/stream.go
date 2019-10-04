@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	_ "net/http/pprof"
 	"os"
 	"os/signal"
 
@@ -21,6 +22,7 @@ type Specification struct {
 	HttpWaitMs         int    `default:"5000"`
 	HttpFlushMs        int    `default:"5"`
 	HttpTimeoutMs      int    `default:"1000"`
+	//CpuProfile         string `default:""`
 }
 
 func init() {
@@ -34,6 +36,7 @@ var streamCmd = &cobra.Command{
 	Short: "stream video",
 	Long:  `capture video incoming to http and stream out over websockets`,
 	Run: func(cmd *cobra.Command, args []string) {
+
 		//Websocket has to be instantiated AFTER the Hub
 		app = App{Hub: agg.New(), Closed: make(chan struct{})}
 		app.Websocket = rwc.New(app.Hub)
@@ -42,6 +45,28 @@ var streamCmd = &cobra.Command{
 		if err := envconfig.Process("vw", &app.Opts); err != nil {
 			log.Fatal("Configuration Failed", err.Error())
 		}
+
+		/*if app.Opts.CpuProfile != "" {
+
+			f, err := os.Create(app.Opts.CpuProfile)
+
+			if err != nil {
+				log.WithField("error", err).Fatal("Could not create CPU profile")
+			}
+
+			defer f.Close()
+
+			if err := pprof.StartCPUProfile(f); err != nil {
+				log.WithField("error", err).Fatal("Could not start CPU profile")
+			}
+
+			go func() {
+
+				time.Sleep(30 * time.Second)
+				pprof.StopCPUProfile()
+
+			}()
+		} */
 
 		//set log format
 		log.SetFormatter(&log.JSONFormatter{})

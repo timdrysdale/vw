@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"io/ioutil"
 	"net/http"
+	"strings"
 
 	"github.com/gorilla/mux"
 	log "github.com/sirupsen/logrus"
@@ -66,6 +67,8 @@ func (app *App) handleStreamAdd(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), 500)
 		return
 	}
+
+	rule.Stream = strings.TrimPrefix(rule.Stream, "/") //can't delete a stream registered with leading prefix
 
 	app.Hub.Add <- rule
 

@@ -37,7 +37,8 @@ func TestHandleStreamAdd(t *testing.T) {
 				status, http.StatusOK)
 		}
 
-		expected := string(rule)
+		//note prefix / on stream is removed
+		expected := `{"stream":"stream/large","feeds":["audio","video0"]}`
 		if rr.Body.String() != expected {
 			t.Errorf("handler returned unexpected body: got %v want %v",
 				rr.Body.String(), expected)
@@ -46,7 +47,7 @@ func TestHandleStreamAdd(t *testing.T) {
 
 	got := <-a.Hub.Add
 
-	if got.Stream != "/stream/large" {
+	if got.Stream != "stream/large" {
 		t.Error("Wrong stream")
 	}
 
