@@ -1,9 +1,12 @@
 package cmd
 
 import (
+	"bufio"
+	"bytes"
 	"crypto/rand"
 	"io/ioutil"
 	"log"
+	"os"
 	"testing"
 
 	"github.com/timdrysdale/agg"
@@ -43,4 +46,14 @@ func testApp(running bool) *App {
 		go a.Websocket.Run(a.Closed)
 	}
 	return a
+}
+
+func suppressLog() {
+	var ignore bytes.Buffer
+	logignore := bufio.NewWriter(&ignore)
+	log.SetOutput(logignore)
+}
+
+func displayLog() {
+	log.SetOutput(os.Stdout)
 }

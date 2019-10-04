@@ -7,6 +7,7 @@ import (
 	"net/url"
 	"os/exec"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -86,12 +87,12 @@ func TestStreamUsingInternals(t *testing.T) {
 	time.Sleep(1 * time.Millisecond)
 
 	// set up our rules (we've not got audio, but use stream for more thorough test
-	streamRule := agg.Rule{Stream: "/stream/large", Feeds: []string{"video0", "audio"}}
+	streamRule := agg.Rule{Stream: "stream/large", Feeds: []string{"video0", "audio"}}
 	app.Hub.Add <- streamRule
 
 	ue, _ := url.Parse(serverExternal.URL)
 	wssUrl := fmt.Sprintf("ws://localhost:%s", ue.Port())
-	destinationRule := rwc.Rule{Stream: "/stream/large", Destination: wssUrl, Id: "00"}
+	destinationRule := rwc.Rule{Stream: "stream/large", Destination: wssUrl, Id: "00"}
 	app.Websocket.Add <- destinationRule
 
 	time.Sleep(1 * time.Millisecond)
@@ -134,120 +135,79 @@ func TestStreamUsingStreamCmd(t *testing.T) {
 	//                        rule        rule           frame
 	//                                                   sizes
 	//
-
 	// start up our streaming programme
+
 	go streamCmd.Run(streamCmd, nil) //streamCmd will populate the global app
 
-	// Set up our destination wss server and frame size check
+	// destination websocket reporting channels
+	msgSize0 := make(chan int)
+	msgSize1 := make(chan int)
 
-	msgSize := make(chan int)
-	msgSize2 := make(chan int)
+	//destination websocket servers
+	serverExternal0 := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { reportSize(w, r, msgSize0) }))
+	defer serverExternal0.Close()
 
-	serverExternal := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { reportSize(w, r, msgSize) }))
-	defer serverExternal.Close()
+	serverExternal1 := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { reportSize(w, r, msgSize1) }))
+	defer serverExternal1.Close()
 
-	serverExternal2 := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { reportSize(w, r, msgSize2) }))
-	defer serverExternal2.Close()
+	// destination changeover signalling (to save guessing ffmpeg startup time)
+	ffmpegRunning := make(chan struct{})
 
-	fmt.Printf("Server: %s\n", serverExternal.URL)
-	fmt.Printf("Server2: %s\n", serverExternal2.URL)
+	// stream rule (we've not got audio, but use stream for more thorough test)
+	streamRule := agg.Rule{Stream: "stream/large", Feeds: []string{"video0", "audio"}}
 
-	time.Sleep(100 * time.Millisecond)
+	// destination rules
+	Id := "00" //same for both as changing, not duplicating, destination
 
-	changeChan := make(chan struct{})
+	url0, _ := url.Parse(serverExternal0.URL)
+	wss0 := fmt.Sprintf("ws://localhost:%s", url0.Port())
+	destinationRule0 := rwc.Rule{Stream: "stream/large", Destination: wss0, Id: Id}
 
-	//check frames sent to first server
+	url1, _ := url.Parse(serverExternal1.URL)
+	wss1 := fmt.Sprintf("ws://localhost:%s", url1.Port())
+	destinationRule1 := rwc.Rule{Stream: "stream/large", Destination: wss1, Id: Id}
+
+	// receivers
+	rxCount0 := 0
+	rxCount1 := 0
+	var wg sync.WaitGroup
+	wg.Add(2)
 	go func() {
-		// did frame sizes come through correctly?
-		frameSizes := []int{15980,
-			20116,
-			17296,
-			16544,
-			18988, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-			0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-			0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-			0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-			0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-			0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-			0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-			0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-			0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-			0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
-
-		time.Sleep(100 * time.Millisecond) //give ffmpeg time to start before looking for frames
-
-		for i := 0; i < len(frameSizes); i++ {
-			select {
-			case <-time.After(200 * time.Millisecond):
-				t.Errorf("Server 1 timed out on frame  %d", i)
-			case frameSize, ok := <-msgSize:
-				if ok {
-					if frameSize != frameSizes[i] {
-						t.Errorf("Server 1 Frame size %d  wrong; got/wanted %v/%v\n", i, frameSize, frameSizes[i])
-					}
-					if i == 10 {
-						close(changeChan)
-					}
-					if i > 10 {
-						t.Errorf("Server 1 received more frames than expected")
-					}
-				} else {
-					t.Error("channel not ok")
-				}
+		defer wg.Done()
+		select {
+		case <-msgSize0:
+			close(ffmpegRunning) //signal to main body of test
+			rxCount0++
+		case <-time.After(time.Second):
+			t.Error("Timeout on destination websocket server 0")
+		}
+		for msgSize := range msgSize0 {
+			if msgSize > 0 {
+				rxCount0++
+			}
+		}
+	}()
+	go func() {
+		defer wg.Done()
+		select {
+		case <-msgSize1:
+			rxCount1++
+		case <-time.After(time.Second):
+			t.Error("Timeout on destination websocket server 1")
+		}
+		for msgSize := range msgSize1 {
+			if msgSize > 0 {
+				rxCount1++
 			}
 		}
 	}()
 
-	//check frames sent to second external server
-	go func() {
-		// did frame sizes come through correctly?
-		frameSizes := []int{
-			17296,
-			16544,
-			18988,
-			0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-			0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-			0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-			0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-			0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-			0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-			0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-			0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-			0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-		}
-
-		<-changeChan //wait for destination change before starting timing
-
-		for i := 0; i < len(frameSizes); i++ {
-			select {
-			case <-time.After(200 * time.Millisecond):
-				t.Errorf("Server 2 timed out on frame  %d", i)
-			case frameSize, ok := <-msgSize2:
-				if ok {
-					if frameSize != frameSizes[i] {
-						t.Errorf("Server 2 frame %d wrong size; got/wanted %v/%v\n", i, frameSize, frameSizes[i])
-					}
-				} else {
-					t.Error("Server 2 channel not ok")
-				}
-			}
-		}
-	}()
-	time.Sleep(1 * time.Millisecond)
-
-	// set up our rules (we've not got audio, but use stream for more thorough test
-	streamRule := agg.Rule{Stream: "/stream/large", Feeds: []string{"video0", "audio"}}
 	app.Hub.Add <- streamRule
-
-	ue, _ := url.Parse(serverExternal.URL)
-	wssUrl := fmt.Sprintf("ws://localhost:%s", ue.Port())
-	Id := "00"
-	destinationRule := rwc.Rule{Stream: "/stream/large", Destination: wssUrl, Id: Id}
-	app.Websocket.Add <- destinationRule
+	app.Websocket.Add <- destinationRule0
 
 	time.Sleep(1 * time.Millisecond)
 
-	//default port for the code
+	// start ffmpeg; use default vw port
 	dest := "http://localhost:8888/ts/video0"
 	args := fmt.Sprintf("-re -f concat -i list.txt -f mpegts -codec:v mpeg1video -s 640x480 -b:v 1000k -r 24 -bf 0 %s", dest)
 	argSlice := strings.Split(args, " ")
@@ -260,25 +220,31 @@ func TestStreamUsingStreamCmd(t *testing.T) {
 	}()
 
 	select {
-	case <-changeChan: //wait for two frames to be received
+	case <-ffmpegRunning:
 	case <-time.After(time.Second): //avoid hanging if test failed
-		t.Errorf("Change of stream not triggered in time - were frames received?")
+		t.Error("Timeout: ffmpeg too slow to send first frame / ffmpeg frames not received")
 	}
 
-	// Websocket.Delete <- Id //destinationRule
+	// wait five frames
+	time.Sleep(5 * 42 * time.Millisecond)
 
-	time.Sleep(10 * time.Millisecond)
+	app.Websocket.Add <- destinationRule1
 
-	//change
-	ue2, _ := url.Parse(serverExternal2.URL)
-	wssUrl = fmt.Sprintf("ws://localhost:%s", ue2.Port())
-	destinationRule = rwc.Rule{Stream: "/stream/large", Destination: wssUrl, Id: "00"}
-	//app.Websocket.Add <- destinationRule
+	// wait another 40 frames
+	time.Sleep(40 * 42 * time.Millisecond)
 
-	// hang on long enough for timeouts/panics in the anonymous goroutine to trigger
-	time.Sleep(5 * time.Second)
+	if rxCount0 < 5 {
+		t.Errorf("Insufficient frames received by server 0: %d", rxCount0)
+	}
+
+	if rxCount1 < 5 {
+		t.Errorf("Insufficient frames received by server 1: %d", rxCount1)
+	}
 
 	close(app.Closed)
+
+	close(msgSize0)
+	close(msgSize1)
 
 	time.Sleep(10 * time.Millisecond)
 }
