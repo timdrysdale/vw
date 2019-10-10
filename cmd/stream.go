@@ -1,9 +1,11 @@
 package cmd
 
 import (
+	"fmt"
 	_ "net/http/pprof"
 	"os"
 	"os/signal"
+	"runtime/debug"
 	"runtime/pprof"
 	"time"
 
@@ -17,7 +19,7 @@ import (
 
 type Specification struct {
 	Port               int    `default:"8888"`
-	LogLevel           string `split_words:"true" default:"ERROR"`
+	LogLevel           string `split_words:"true" default:"TRACE"`
 	MuxBufferLength    int    `default:"10"`
 	ClientBufferLength int    `default:"5"`
 	ClientTimeoutMs    int    `default:"1000"`
@@ -38,6 +40,12 @@ var streamCmd = &cobra.Command{
 	Short: "stream video",
 	Long:  `capture video incoming to http and stream out over websockets`,
 	Run: func(cmd *cobra.Command, args []string) {
+
+		defer func() {
+			if r := recover(); r != nil {
+				fmt.Println("stacktrace from panic: \n" + string(debug.Stack()))
+			}
+		}()
 
 		//Websocket has to be instantiated AFTER the Hub
 		app = App{Hub: agg.New(), Closed: make(chan struct{})}

@@ -9,6 +9,8 @@
 *~
 vw
 ./cmd/bin.dat
+tmp
+cpu.prof
 # Test binary, build with `go test -c`
 *.test
 

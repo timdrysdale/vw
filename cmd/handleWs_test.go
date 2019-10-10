@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"bytes"
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -106,8 +107,10 @@ func TestHandleWsSendMessageViaWs(t *testing.T) {
 
 	// test harness on the sending side
 	r := reconws.New()
-	r.Url = "ws" + strings.TrimPrefix(s.URL, "http") + "/ws/greetings"
-	go r.Reconnect()
+	urlStr := "ws" + strings.TrimPrefix(s.URL, "http") + "/ws/greetings"
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go r.Reconnect(ctx, urlStr)
 
 	time.Sleep(1 * time.Millisecond)
 
@@ -161,10 +164,6 @@ func TestHandleWsSendMessageViaWs(t *testing.T) {
 	// hang on long enough for both timeouts in the anonymous goroutine
 	time.Sleep(30 * time.Millisecond)
 
-	//close(app.Closed)
-	close(r.Stop)
-
-	//time.Sleep(1000 * time.Millisecond) //allow time for goroutines to end before starting a new http server
 }
 
 // this test only shows that the httptest server is working ok
@@ -177,9 +176,10 @@ func TestHandleWsEcho(t *testing.T) {
 	defer s.Close()
 
 	// Convert http://127.0.0.1 to ws://127.0.0.
-	r.Url = "ws" + strings.TrimPrefix(s.URL, "http")
-
-	go r.Reconnect()
+	urlStr := "ws" + strings.TrimPrefix(s.URL, "http")
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go r.Reconnect(ctx, urlStr)
 
 	payload := []byte("Hello")
 	mtype := int(websocket.TextMessage)
