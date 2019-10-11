@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	_ "net/http/pprof"
 	"time"
 
 	"github.com/gorilla/mux"
@@ -45,6 +46,9 @@ func (app *App) startHttpServer(port int) *http.Server {
 	srv := &http.Server{Addr: addr}
 
 	var router = mux.NewRouter()
+
+	// for profiler
+	router.PathPrefix("/debug/pprof/").Handler(http.DefaultServeMux)
 
 	router.HandleFunc("/api", app.handleApi)
 	router.HandleFunc("/api/destinations", app.handleDestinationAdd).Methods("PUT", "POST", "UPDATE")

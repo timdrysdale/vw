@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"fmt"
-	_ "net/http/pprof"
 	"os"
 	"os/signal"
 	"runtime/debug"
