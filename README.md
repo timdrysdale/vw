@@ -186,14 +186,6 @@ These are notes to me of possible features to consider, rather than promises to 
 
 There is an insignificant leakage of goroutines (0.1%) - after 86,400 streams were added for one-second each in one 24hour test, there were an extra 114 RelayOut() and 86 RelayTo() goroutines present (out of some 172,800 that had been started and killed), but memory usage had not appreciably increased (static at 0.1% of total) and CPU usage remained constant (ca 20%). The cause seems fairly subtle but after further golang experience it'll be pretty obvious why this is. There are also some races detected that I don't understand how they occur, which may or may not be related. 
 
-Panics ...
-
-Soak testing + mods have ruled out a number of panics.
-
-close of closed channel
-A new one just cropped up -  agg.go:42/hug.go:75
-
-
 
 ## Internals
 
