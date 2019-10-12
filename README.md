@@ -2,92 +2,132 @@
 
 ![alt text][logo]
 
-![alt text][status]
+![alt text][status] ![alt text][coverage]
 
-Video over websockets, a golang alternative to the node.js-based relay in [phoboslab/jsmpeg](https://github.com/phoboslabs/msjpeg).
+Video over websockets, a dynamically-reconfigurable golang alternative to the node.js-based relay in [phoboslab/jsmpeg](https://github.com/phoboslabs/msjpeg).
 
 ## Why?
-This implementation adds convenience features for configuration and monitoring that are helpful for unattended deployments in remote laboratory experimentsthat sit behind restrictive network firewalls, and therefore cannot directly act as publically-visible live video servers. ```vw``` facillitates relaying multiple video and audio feeds over websocket to a distant relay server. 
 
-## Related projects
+```vw```'s dynamic reconfigurability is intended to make life easier when deploying remote laboratory experiments that use MPEGTS video streams. 
+
+### Background
+
+Sending MPEGTS streams over websockets is attractive for remote laboratory experiments because they often cannot have public IP addresses, and must sit behind restrictive firewalls that often permit only outgoing ```80/tcp``` and ```443/tcp```. Therefore these experiments cannot act as servers, and must instead rely on a remote relay that can receive their websocket video stream and arrange for it to be forwarded to a user. That remote relay must be readily changeable in order to facilitate cost savings like using short-lived spot-priced servers or for coping with other remote relay failures. In some cases, the reconfigurability is required within the experiment, for cost and privacy reasons. The MPEGTS streams can be comprised of separately-encoded video and audio tracks, perhaps of selectable bitrate for bandwidth efficiency. For privacy reasons, it is desirable to be able add and subtract individual tracks from the outgoing stream, for example to facilitate a room-wide mute function across multiple experiments when humans are present. This is particularly important for beginning hosters who are using their offices or homes for experiments, but don't want to entirely disable the audio (but just mute it when they are present). Obviously, the existing [phoboslab/jsmpeg](https://github.com/phoboslabs/msjpeg) relay could be made configurable with a config file, and simply restarted as needed. Since there is a delay to starting ffmpeg, it would instead be preferable to hot-swap the destination with a dynamically reconfigurable local relay so that the video connection can be maintained without a 1-sec outage due to ffmpeg restarting. This then requires the local relay to run continuously, and if the destination must be updated because the remote relay has changed, or the audio mute has been toggled, then the local relay must be dynamically reconfigurable. This also happens to resonate with the 12-factor approach of avoiding configuration files in favour of a RESTful API for configuration.
+
+### Related projects
 Related ```golang``` projects include [ws-tcp-relay](https://github.com/isobit/ws-tcp-relay) which calls itself [websocketd](https://github.com/joewalnes/websocketd) for TCP instead of ```STDIN``` and ```STDOUT```. Note that [ws-tcp-relay](https://github.com/isobit/ws-tcp-relay) has a websocket server, not a client as required here.
 
-## Usage
+## Getting started
 
-After installation and configuration, streaming can be started by 
-
-    $ vw stream 
-
-If you want to use a config file in a non-standard location, then
-
-    $ vw stream --config=/path/to/your/config.yaml
-
-
-## Installation 
-
-Download and compile the repo 
+Download and build in the usual manner. The code relies on additional libraries such as ```timdrysdale/[hub,agg,reconws,rwc]``` so these must be downloaded too.
 
     $ go get github.com/timdrysdale/vw
-    $ cd $GO_PATH/src/github.com/timdrysdale/vw
-    $ go get ./...
-    $ go build
+	$ cd $GOPATH/src/github/timdrysdale/vw
+	$ go get -d ./...
+	$ go build
 
-### Platform specific comments 
+Install the executable in a location that is on your path, e.g.
 
-#### Linux
+	$ cp ./vw ~/bin
+	$ export PATH=$PATH:~/bin
 
-Developed and tested on Centos 7 for x86_64, Kernel version 3.10, using ```v4l2```, ```alsa``` and ```ffmpeg```
+Set the configuration variables, e.g. the port that ```vw``` will listen on (default is 8888):
+	
+	$ export VW_PORT=8888
 
-#### Windows 10
+Set the logging level if you wish to see greater or fewer messages
 
-Compiles and runs the core code, but I had issues trying to get ```dshow``` to work with my logitech c920 camera and ```ffmpeg```, so video streaming has not been demonstated by me (yet). Further investigation has been deferred until windows deployments become a higher priority.
+    $ export VW_LOGLEVEL=ERROR
 
-#### aarch64
+Note that other configuration variables are available, but are for developer use only (see ```cmd/stream.go```). 
 
-```vw``` has been successfully cross-compiled and used with the aarch64 ARM achitecture of the Odroid N2, running an Ubuntu 18.04.2 LTS flavour linux with kernal version 4.9.1622-22.
+Start ```vw``` with the ```stream``` command:
 
-		 $ export GOOS = linux
-		 $ export GOARCH = arm64
-		 $ go build
+    $ ./vw stream 
 
-Note that on this architecture, ```cmd.process.kill()``` is currently suspected of hanging, so cannot exit cleanly with Ctrl-C and instead need to Ctrl-Z and then ```pkill -9 vw``` to clean up defunct processes that are holding onto webcams. Note that ```pkill``` is installed with 
+Start an ffmpeg video stream and direct it to ```vw```
 
-    $ sudo apt-get install procps  
-
-## Configuration
-
-A configuration file is required to configure the feeds. This is too verbose to be done at the command line so no command line options are provided for configuring feeds. The config file can be supplied as an argument, but if it is omitted, then ```vw``` looks for a file ```vw.yaml``` in the current working directory. Configuration files are not sought in the standard locations such as ```/etc/``` because it is likely that more than one copy of ```vw``` will be in use simultaneously, so it would not make sense to offer a feature that could lead to inadvertent duplication of configurations.
+	 $ ffmpeg -f v4l2 -framerate 25 -video_size 640x480 -i /dev/video0 -f mpegts -codec:v mpeg1video -s 640x480 -b:v 1000k -bf 0 http://localhost:8888/ts/video0
 
 
-On linux, a simple single-camera, no-audio, feed can be configured as shown below. There are two main parts to the configuration - commands to run to capture video and/or audio, and websocket servers to dial and forward those video/audio streams.
+Start an ffmpeg audio stream and direct it to ```vw```
+
+	 $ ffmpeg <your audio streaming settings here> http://localhost:8888/ts/audio0
+
+See [ffmpeg/ALSA](https://trac.ffmpeg.org/wiki/Capture/ALSA) for information on identifying your audio input devices.
+
+TODO: provide example settings
+
+Configure the streams
+
+    $ curl -X POST -H "Content-Type: application/json" -d '{"stream":"/stream/front/large","feeds":["video0","audio0"]}' http://localhost:8888/api/streams
+	$ curl -X POST -H "Content-Type: application/json" -d '{"stream":"/stream/front/large","destination":"wss://<some.relay.server>/in/video0","id":"0"}' http://localhost:8888/api/destinations
+
+You should immediately be able to see your video streams if your browser is connected to your relay server. See [timdrysdale/crossbar](https://github.com/timdrysdale/crossbar) for a relay server.
+
+## API
+
+The API allows rules to be added, deleted, and listed.
+
+### Rules for feeds and Streams
+
+```feeds``` are individual tracks from ffmpeg, which can be forwarded by using a single destination rule:
+	
+    $ curl -X POST -H "Content-Type: application/json" -d '{"stream":"video0","destination":"wss://<some.relay.server>/in/video0","id":"0"}' http://localhost:8888/api/destinations 
+
+```streams``` can combine multiple tracks (typically one video and one audio track are all that a player can handle), and require both a stream rule and a destination rule. Streams are prefixed with a mandatory ```stream/``` - note that if you supply a leading '/' then you will not be able to delete the stream because you cannot access an endpoint with '//' in it.
+
+    $ curl -X POST -H "Content-Type: application/json" -d '{"stream":"/stream/front/large","feeds":["video0","audio0"]}' http://localhost:8888/api/streams
+	$ curl -X POST -H "Content-Type: application/json" -d '{"stream":"/stream/front/large","destination":"wss://<some.relay.server>/in/video0","id":"0"}' http://localhost:8888/api/destinations
+
+### Updating rules
+
+Existing rules can be updated by simply adding them again, e.g. to mute the audio:
+
+    $ curl -X POST -H "Content-Type: application/json" -d '{"stream":"/stream/front/large","feeds":["video0"]}' http://localhost:8888/api/streams
+
+ or to change the destination (note the rule ```id``` is kept the same):
+
+	$ curl -X POST -H "Content-Type: application/json" -d '{"stream":"/stream/front/large","destination":"wss://<some.relay.server>/in/video1","id":"0"}' http://localhost:8888/api/destinations
+
+### Seeing existing rules
+
+If you want to see the ```streams``` you have set up:
+   
+    $ curl -X GET http://localhost:8888/api/streams/all
+     {"stream/front/large":["video0","audio0"]}	 
+
+If you want to see the ```destinations``` you have set up:
+
+    $ curl -X GET http://localhost:8888/api/destinations/all
+	  {"0":{"id":"0","stream":"stream/front/large","destination":"wss://video.practable.io:443/in/video2"}}
+
+### Deleting individual rules
+   
+If you want to delete a ```stream``` (response confirms which stream was deleted):
+
+    $ curl -X DELETE http://localhost:8888/api/streams/stream/front/large
+     "stream/front/large"
+
+If you want to delete a ```destination``` then refer to its ```id``` (response confirms which ```id``` was deleted)
+
+    $ curl -X DELETE http://localhost:8888/api/destinations/0
+      "0"
+
+### Deleting all rules
+
+Simply use the <>/all endpoint, e.g. 
+
+    $ curl -X DELETE http://localhost:8888/api/streams/all
+
+or
+
+    $ curl -X DELETE http://localhost:8888/api/destinations/all
 
 
-```
---- 
-commands: 
-  - "ffmpeg -f v4l2 -framerate 25 -video_size 640x480 -i ${camera0} -f mpegts -codec:v mpeg1video -s 640x480 -b:v 1000k -bf 0 ${video0}"
+## Identifying your devices
 
-variables:
-  outurl: "wss://video.practable.io:443"
-  camera0: /dev/video1
-
-streams: 
-  -   destination: "${outurl}/in/video1"
-      feeds: 
-        - video0
-```
-
-To better avoid errors associated with having to repeat yourself, configuration files rely on two kinds of variable expansion:
-
-First, user-defined variables can be specified, and these will be expanded in both capture commands, and stream destinations, such as ```outurl``` and ```camera0``` in this example.
-
-Second, there are implicitly defined variables associated with each feed. Each uniquely-named entry in the ```feeds``` of the ```streams``` corresponds to a unqiue, automatically-created ```http``` endpoint that varies from instance to instance. Thus, any feed name used as a variable in the capture commands is expanded to be the coordinatates of that endpoint. This expansion does NOT apply to stream names because then you'd have two URLs in one, which won't work. In this way, a ```vw``` avoids you having to manually configure http endpoints, and takes over the responsbility for ```tee```-ing identical feeds into different streams. In this example commmand, the variable ```video0``` stands for an endpoint that will be fed into the only stream being output.
-
-Note that for testing purposes, you can run ```vw``` and ```ffmpeg``` separately. In this case, to find the dynamically-allocated endpoint, try a capture command like: 
-
-	 - "echo \"send your MPEG TS stream to ${video0}\""
-
-### Identifying your cameras
+### Cameras
 
 You can find the cameras attached to your system with ```v4l2-ctl```:
 
@@ -103,100 +143,78 @@ If your camera needs to be initialised or otherwise set up, e.g. by using ```v4l
     v4l2-ctl --device $1 --set-fmt-video=width=640,height=480,pixelformat=YUYV
     ffmpeg -f v4l2 -framerate 25 -video_size 640x480 -i $1 -f mpegts -codec:v mpeg1video -s 640x480 -b:v 1000k -bf 0 $2
 
-And then in your ```config.yaml``` you'd put the camera ID as the first argument, and the capture endpoint as the second:
+### Microphones
 
-    --- 
-    commands: 
-      - "./fmv.sh ${camera0} ${video0}"
-    
-    <snip>
+Use you can use this command on linux:
+
+    $ arecord -l
+
+TODO: This command is not currently known to work (but a previous version of the command I don't have to hand, did work)
+
+    $ ffmpeg -f alsa -i hw:2 -filter:a "volume=50" -f mpegts -codec:a libmp3lame -b:a 24k http://localhost:8888/ts/audio0
 
 Things can get a bit more tricky if you are using ```ffmpeg``` within a docker container, because you need to pass the device and network to the container and you also need to have ```sudo``` permissions in some implementations. There's a description of using alsa and pulseaudio with docker [here](https://github.com/mviereck/x11docker/wiki/Container-sound:-ALSA-or-Pulseaudio).
 
-## Other features
+## Platform specific comments 
 
-### Write to file
+#### Linux
 
-Stream writers can be configured by adding 
+Developed and tested on Centos 7 for x86_64, Kernel version 3.10, using ```v4l2```, ```alsa``` and ```ffmpeg```
 
-    writers:
-      -   file: checklong.ts
-          feeds: 
-            - video0
-       
-At present, it is an error to specify an existing file. This behaviour was adopted so that rare artefacts or a reliable test file captured on a streaming test were not inadvertently overwritten by a ham-fisted use of shell history replay. However, I found it pretty annoying myself and so this behavour is likely to be upgraded in some way (see future features)
+#### Windows 10
 
-Writing to disk is accomplished in a separate go-routine to avoid introducing variable latency in the network messaging. There is no attention paid to respecting available disk space because it is expected that the write feature will be used sparingly, and not routinely while serving (see future features).
+I managed to compile and run an earlier version of the code, but I had issues trying to get ```dshow``` to work with my logitech c920 camera and ```ffmpeg```, so I am deferring further testing until windows-hosted experiments become a higher priority.
 
-### Exit on capture failure
+#### aarch64
 
-Monitors can be configured to exit ```vw``` if a specified capture stream(s) fails (currently hardwired as no frames for two seconds), as an aid to using conventional process monitoring tools:
+```vw``` has been successfully cross-compiled and used with the aarch64 ARM achitecture of the Odroid N2, running an Ubuntu 18.04.2 LTS flavour linux with kernel version 4.9.1622-22.
 
-    monitor
-      - video0
+		 $ export GOOS = linux
+		 $ export GOARCH = arm64
+		 $ go build
 
 
-## Future features
+## Future features 
 
 These are notes to me of possible features to consider, rather than promises to implement
 
-0. Allow endpoints to be configured manually, so that capture commands can be automatically run outside of ```vw```.
 0. Configurator to assist in assigning cameras to feeds 
-0. Designation of streams as required or optional, with ```vw``` exiting if required stream cannot be produced (e.g. capture failure)
-0. HTTP endpoint to control whether a stream includes the audio track(s) or not
 0. HTTP endpoint to report stats 
 0. HTTP endpoint to offer stream pre-view
-0. Allow writers to overwrite existing files automatically, and/or to append a salt like date/time.
-0. Permit some form of log-rotation in the file writers to retain the last N-(duration-units) of (a) stream(s) - but consider that this could be implemented separately if local clients could receive a stream
-0. Add a websocket server to let local clients receive streams (e.g. to permit a sophisticated stream recorder or image analyser to be written in a separate code-base)
+
+## Issues
+
+There is an insignificant leakage of goroutines (0.1%) - after 86,400 streams were added for one-second each in one 24hour test, there were an extra 114 RelayOut() and 86 RelayTo() goroutines present (out of some 172,800 that had been started and killed), but memory usage had not appreciably increased (static at 0.1% of total) and CPU usage remained constant (ca 20%). The cause seems fairly subtle but after further golang experience it'll be pretty obvious why this is. There are also some races detected that I don't understand how they occur, which may or may not be related. 
+
+Panics ...
+
+Soak testing + mods have ruled out a number of panics.
+
+close of closed channel
+A new one just cropped up -  agg.go:42/hug.go:75
+
+
 
 ## Internals
 
-This internals diagram was drawn before implementation. At present time, the monitor does not exist, and logging is performed directly to stdout or file. However, the rest is about right.
+This diagram has been superseded by the new design ...
 
 ![alt text][internals]
 
-### Websockets
 
-The code was initially developed with ```nhooyr/websocket``` then ```gobwas/ws``` then ```gorilla/websocket```. The usage model is for few high bandwidth connections so there is little advantage to be gained from the more recent re-implementations of websockets that focus on high connection counts with sparse activity.  
+## Historical notes
 
+In case future self wonders why I didn't try this or that ... when I already did.
 
-## Tests
+### yaml
+An earlier version of this code required a ```yaml``` configuration file that was read once on starting ```vww```. ```vw``` took responsibility for starting ```ffmpeg```. This version suffered from terminal issues around platform-specific variances in the operation of ```cmd.process.kill()``` that left orphan processes holding onto the USB camera on the odroid-N2. Investigating further, it seemed like an Linux-wide issue that killing grandparents did not kill parents or children, and this would prevent ```vw``` from meeting its promises to cleanly kill ```ffmpeg```. Also, the static configuration turned out to be way less flexible than I hoped and the instant I had got it working I realised I didn't think it would work down the line for large deployments. So I could sovle both issues by splitting the responsibility for running ```ffmpeg``` away from ```vw```, and going for dynamic reconfiguration.
 
-### TODO - unit
-0. Check that cmd.Process.Kill works on odroid / figure out a way to run the test suite on a different arch ....
+### websocket library
+The code was initially developed with ```nhooyr/websocket``` then ```gobwas/ws``` then ```gorilla/websocket```, mainly in response to errors possibly relating to websocket reuse with the first two (I didn't really understand what was going wrong, but things got immediately better with ```gorilla/websocket```). There is no comparative performance disadvantage to ```gorilla/websocket``` in my use case because the ```vw``` usage model is for a few high bandwidth connections, rather than the numerous+sparse use case targeted by the other implementations.
 
-### TODO - integration
-
-0. Send a binary blob to the http endpoint of ```vw```, and compare with what is received at websocket server provisioned for this test.
-0. Send sequentially two different binary blobs to the http endpoint of ```vw``` and forward to two websocket servers. Check both get two different blobs that match the originally sent blobs.
-0. Send a MAXSIZE binary blob to the http endpoint and check it can be forwarded to a websocket server
-0. Stream from a short file to ```vw``` configured to send to one server. That server saves the file to disk. Compare the files. 
-0. Stream a file using ffmpeg and check the stats at the receiving websocket order.
-0. Include a file that can be streamed with ffmpeg. Stream it to ```vw```, configured to send it to two servers. Those servers save the file to disk. Compare the files to ensure both obtained a complete stream.
-0. Time stamp the arrival time of packets at the test websocket server, both with and without the write-to-file feature enabled.
-
-### done - Unit
-
-0. Send a binary blob to the http endpoint, record it to file, and compare with the send blob.
-0. Send a sequence of binary blogs of non-monotonic size variation and check that they are received in the correct order at the websocket server
 
 
 [status]: https://img.shields.io/badge/alpha-do%20not%20use-orange "Alpha status, do not use" 
 [logo]: ./img/logo.png "VW logo"
 [internals]: ./img/internals.png "Diagram of VW internals showing http server, websocket client, mux, monitor, and syscall for ffmpegs"
-
-## Issues
-
-Websockets do not reconnect, but should
-Config file and command line integration is currently not fully implemented, and does not support all uses cases
-Logging does not seem to log to file 
-Port should be externally configurable for running capture commands separately
-A number of parameters are fixed but could/should be made optionally configurable in the config file
-Killing capture commands is not working on odroid
-Configuration updates, such as sending streams to new destinations should potentially be supported without restart, so as to avoid unnecessary USB connection cycles
-Some form of local preview would be useful
-Some form of auditing of what has been seen, what has been transmitted, would be useful (e.g. log to file)
-Tests need updating
-
-killing ffmpeg occasionally does not work - it appears this may not be the first time this issue has been [seen](https://lists.ffmpeg.org/pipermail/ffmpeg-user/2017-February/035181.html) but there is no follow up to this 2012 issue to shed light on what was found then.
+[coverage]: https://img.shields.io/badge/coverage-71%25-yellowgreen "coverage 71%"
