@@ -90,16 +90,8 @@ func (app *App) handleTs(w http.ResponseWriter, r *http.Request) {
 
 			} else {
 
-				select {
+				return // avoid spinning our wheels
 
-				case <-app.Closed:
-
-					return //game over if closed
-
-				default:
-
-					// try again in case it's recoverable
-				}
 			}
 		}
 	}()
