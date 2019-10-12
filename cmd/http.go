@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"net/http/pprof"
 	_ "net/http/pprof"
 	"time"
 
@@ -49,6 +50,14 @@ func (app *App) startHttpServer(port int) *http.Server {
 
 	// for profiler
 	router.PathPrefix("/debug/pprof/").Handler(http.DefaultServeMux)
+	router.HandleFunc("/debug/pprof/cmdline", pprof.Cmdline)
+	router.HandleFunc("/debug/pprof/profile", pprof.Profile)
+	router.HandleFunc("/debug/pprof/symbol", pprof.Symbol)
+
+	router.Handle("/debug/pprof/goroutine", pprof.Handler("goroutine"))
+	router.Handle("/debug/pprof/heap", pprof.Handler("heap"))
+	router.Handle("/debug/pprof/threadcreate", pprof.Handler("threadcreate"))
+	router.Handle("/debug/pprof/block", pprof.Handler("block"))
 
 	router.HandleFunc("/api", app.handleApi)
 	router.HandleFunc("/api/destinations", app.handleDestinationAdd).Methods("PUT", "POST", "UPDATE")
