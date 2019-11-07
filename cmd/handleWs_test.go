@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/gorilla/mux"
 	"github.com/gorilla/websocket"
 	log "github.com/sirupsen/logrus"
 	"github.com/timdrysdale/agg"
@@ -88,7 +89,7 @@ func TestHandleWsSendMessageViaWs(t *testing.T) {
 
 	time.Sleep(2 * time.Millisecond)
 
-	crx := &hub.Client{Hub: app.Hub.Hub, Name: "rx", Topic: "/greetings", Send: make(chan hub.Message), Stats: hub.NewClientStats()}
+	crx := &hub.Client{Hub: app.Hub.Hub, Name: "rx", Topic: "greetings", Send: make(chan hub.Message), Stats: hub.NewClientStats()}
 
 	app.Hub.Register <- crx
 
@@ -100,7 +101,10 @@ func TestHandleWsSendMessageViaWs(t *testing.T) {
 	}
 
 	// server to action the handler under test
-	s := httptest.NewServer(http.HandlerFunc(app.handleWs))
+	router := mux.NewRouter()
+	router.HandleFunc("/ws/{feed}", http.HandlerFunc(app.handleWs))
+
+	s := httptest.NewServer(router)
 	defer s.Close()
 
 	time.Sleep(2 * time.Millisecond)

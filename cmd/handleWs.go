@@ -2,10 +2,10 @@ package cmd
 
 import (
 	"net/http"
-	"strings"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/gorilla/mux"
 	"github.com/gorilla/websocket"
 	log "github.com/sirupsen/logrus"
 	"github.com/timdrysdale/hub"
@@ -46,8 +46,11 @@ func (app *App) handleWs(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	topic := strings.TrimPrefix(r.URL.Path, "/") //trim separately because net does not guarantee leading /
-	topic = strings.TrimPrefix(topic, "ws")      //strip ws because we're agnostic to which handler gets the feed
+	vars := mux.Vars(r)
+	topic := vars["feed"]
+
+	//topic := strings.TrimPrefix(r.URL.Path, "/") //trim separately because net does not guarantee leading /
+	//topic = strings.TrimPrefix(topic, "ws")      //strip ws because we're agnostic to which handler gets the feed
 
 	messageClient := &hub.Client{Hub: app.Hub.Hub,
 		Name:  uuid.New().String()[:3],
