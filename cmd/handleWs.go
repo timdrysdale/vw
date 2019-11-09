@@ -49,9 +49,6 @@ func (app *App) handleWs(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	topic := vars["feed"]
 
-	//topic := strings.TrimPrefix(r.URL.Path, "/") //trim separately because net does not guarantee leading /
-	//topic = strings.TrimPrefix(topic, "ws")      //strip ws because we're agnostic to which handler gets the feed
-
 	messageClient := &hub.Client{Hub: app.Hub.Hub,
 		Name:  uuid.New().String()[:3],
 		Send:  make(chan hub.Message),
