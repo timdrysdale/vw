@@ -80,7 +80,7 @@ func TestHandleTsFrameBoundaries(t *testing.T) {
 		// did frame sizes come through correctly?
 		for i := 0; i < len(frameSizes); i++ {
 			select {
-			case <-time.After(100 * time.Millisecond):
+			case <-time.After(200 * time.Millisecond):
 				t.Errorf("timed out on frame  %d", i)
 			case msg, ok := <-crx.Send:
 				if ok {
