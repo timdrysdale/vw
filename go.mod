@@ -11,13 +11,16 @@ require (
 	github.com/gorilla/mux v1.7.3
 	github.com/gorilla/websocket v1.4.1
 	github.com/jinzhu/copier v0.0.0-20190924061706-b57f9002281a // indirect
-	github.com/jpillora/backoff v0.0.0-20180909062703-3050d21c67d7 // indirect
+	github.com/jpillora/backoff v1.0.0 // indirect
 	github.com/kelseyhightower/envconfig v1.4.0
+	github.com/konsorten/go-windows-terminal-sequences v1.0.2 // indirect
 	github.com/sirupsen/logrus v1.4.2
 	github.com/spf13/cobra v0.0.5
-	github.com/timdrysdale/agg v0.0.0-20191002201227-c0886f93dc57
+	github.com/spf13/pflag v1.0.5 // indirect
+	github.com/timdrysdale/agg v0.0.0-20191019095533-60164dd8a269
 	github.com/timdrysdale/chanstats v0.0.0-20190915011233-b0c6a75b4ff9 // indirect
-	github.com/timdrysdale/hub v0.0.0-20191002132940-be06fdb6a1ce
-	github.com/timdrysdale/reconws v0.0.0-20190923202835-b89b97e3a71a
-	github.com/timdrysdale/rwc v0.0.0-20191002201335-2fd712dcd0a3
+	github.com/timdrysdale/hub v0.0.0-20191012173646-ac51456fe28f
+	github.com/timdrysdale/reconws v0.0.0-20191012131359-34f25fee9e0e
+	github.com/timdrysdale/rwc v0.0.0-20191011123131-00e6abe5e8d0
+	golang.org/x/sys v0.0.0-20191112214154-59a1497f0cea // indirect
 )

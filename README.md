@@ -143,6 +143,21 @@ If your camera needs to be initialised or otherwise set up, e.g. by using ```v4l
     v4l2-ctl --device $1 --set-fmt-video=width=640,height=480,pixelformat=YUYV
     ffmpeg -f v4l2 -framerate 25 -video_size 640x480 -i $1 -f mpegts -codec:v mpeg1video -s 640x480 -b:v 1000k -bf 0 $2
 
+### Resetting from command line
+
+On linux (tested on Ubuntu) you can [deauthorize and reauthorize usb devices from the CLI](https://askubuntu.com/questions/645/how-do-you-reset-a-usb-device-from-the-command-line)
+
+```
+sudo sh -c "echo 0 > /sys/bus/usb/devices/1-5/authorized"
+sudo sh -c "echo 1 > /sys/bus/usb/devices/1-5/authorized"
+```
+You can find the right path by looking in dmesg
+
+### Raspberry pi
+
+From [jsmpeg README](https://github.com/phoboslab/jsmpeg)
+> This example assumes that your webcam is compatible with Video4Linux2 and appears as /dev/video0 in the filesystem. Most USB webcams support the UVC standard and should work just fine. The onboard Raspberry Camera can be made available as V4L2 device by loading a kernel module: sudo modprobe bcm2835-v4l2.
+
 ### Microphones
 
 Use you can use this command on linux:
