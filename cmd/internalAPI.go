@@ -76,6 +76,17 @@ var errBadCommand = errors.New("Unrecognised Command")
 //
 // {"verb":"delete","what":"stream","which":"all"}
 // {"verb":"delete","what":"destination","which":"all"}
+//
+// Which is adapted from the REST-like API
+//
+// destination: POST {"stream":"video0","destination":"wss://<some.relay.server>/in/video0","id":"0"} /api/destinations
+// stream: POST {"stream":"/stream/front/large","feeds":["video0","audio0"]} /api/streams
+// GET /api/streams/all
+// GET /api/destinations/all
+// DELETE /api/streams</stream_name>
+// DELETE /api/destinations</id>
+// DELETE /api/streams/all
+// DELETE /api/destinations/all
 
 func (app *App) handleAdminMessage(msg []byte) ([]byte, error) {
 
@@ -87,86 +98,79 @@ func (app *App) handleAdminMessage(msg []byte) ([]byte, error) {
 	if err != nil {
 		return reply, errBadCommand
 	}
-
-	switch cmd.What {
-	case "destination":
-		switch cmd.Verb {
-		case "add":
-			var rule rwc.Rule
-			err = json.Unmarshal(*cmd.Rule, &rule)
-			rule.Stream = strings.TrimPrefix(rule.Stream, "/") //to match trimming we do in handleStreamAdd
-			app.Websocket.Add <- rule
-			reply, err = json.Marshal(rule)
-		case "delete":
-			switch cmd.Which {
-			case "":
-				err = errBadCommand
-			case "all":
-				app.Websocket.Delete <- "deleteAll"
-				reply = []byte(`{"deleted":"deleteAll"}`)
-			default:
-				app.Websocket.Delete <- cmd.Which
-				reply = []byte(`{"deleted":"` + cmd.Which + `"}`)
-			}
-		case "list":
-			switch cmd.Which {
-			case "":
-				err = errBadCommand
-			case "all":
-				reply, err = json.Marshal(app.Websocket.Rules)
-			default:
-				reply, err = json.Marshal(app.Websocket.Rules[cmd.Which])
-			}
-		default:
-			err = errBadCommand
-		}
-	case "healthcheck":
+	if cmd.Verb == "healthcheck" {
 		reply = []byte(`{"healthcheck":"ok"}`)
-	case "stream":
-		switch cmd.Verb {
-		case "add":
-			var rule agg.Rule
-			err = json.Unmarshal(*cmd.Rule, &rule)
-			rule.Stream = strings.TrimPrefix(rule.Stream, "/") //to match trimming we do in handleStreamAdd
-			app.Hub.Add <- rule
-			reply, err = json.Marshal(rule)
-		case "delete":
-			switch cmd.Which {
-			case "":
-				err = errBadCommand
-			case "all":
-				app.Hub.Delete <- "deleteAll"
-				reply = []byte(`{"deleted":"deleteAll"}`)
+	} else {
+		switch cmd.What {
+		case "destination":
+			switch cmd.Verb {
+			case "add":
+				var rule rwc.Rule
+				err = json.Unmarshal(*cmd.Rule, &rule)
+				rule.Stream = strings.TrimPrefix(rule.Stream, "/") //to match trimming we do in handleStreamAdd
+				app.Websocket.Add <- rule
+				reply, err = json.Marshal(rule)
+			case "delete":
+				switch cmd.Which {
+				case "":
+					err = errBadCommand
+				case "all":
+					app.Websocket.Delete <- "deleteAll"
+					reply = []byte(`{"deleted":"deleteAll"}`)
+				default:
+					app.Websocket.Delete <- cmd.Which
+					reply = []byte(`{"deleted":"` + cmd.Which + `"}`)
+				}
+			case "list":
+				switch cmd.Which {
+				case "":
+					err = errBadCommand
+				case "all":
+					reply, err = json.Marshal(app.Websocket.Rules)
+				default:
+					reply, err = json.Marshal(app.Websocket.Rules[cmd.Which])
+				}
 			default:
-				app.Hub.Delete <- cmd.Which
-				reply = []byte(`{"deleted":"` + cmd.Which + `"}`)
+				err = errBadCommand
 			}
-		case "list":
-			switch cmd.Which {
-			case "":
-				err = errBadCommand
-			case "all":
-				reply, err = json.Marshal(app.Hub.Rules)
+		case "stream":
+			switch cmd.Verb {
+			case "add":
+				var rule agg.Rule
+				err = json.Unmarshal(*cmd.Rule, &rule)
+				rule.Stream = strings.TrimPrefix(rule.Stream, "/") //to match trimming we do in handleStreamAdd
+				app.Hub.Add <- rule
+				reply, err = json.Marshal(rule)
+			case "delete":
+				switch cmd.Which {
+				case "":
+					err = errBadCommand
+				case "all":
+					app.Hub.Delete <- "deleteAll"
+					reply = []byte(`{"deleted":"deleteAll"}`)
+				default:
+					app.Hub.Delete <- cmd.Which
+					reply = []byte(`{"deleted":"` + cmd.Which + `"}`)
+				}
+			case "list":
+				switch cmd.Which {
+				case "":
+					err = errBadCommand
+				case "all":
+					reply, err = json.Marshal(app.Hub.Rules)
+				default:
+					var feeds []byte // manage scope of err by avoiding :=
+					feeds, err = json.Marshal(app.Hub.Rules[cmd.Which])
+					reply = []byte(`{"feeds":` + string(feeds) + `}`)
+				}
 			default:
-				reply, err = json.Marshal(app.Hub.Rules[cmd.Which])
+				err = errBadCommand
 			}
 		default:
 			err = errBadCommand
 		}
-	default:
-		err = errBadCommand
 	}
 
 	return reply, err
 
 }
-
-// REST-like API
-// destination: POST {"stream":"video0","destination":"wss://<some.relay.server>/in/video0","id":"0"} /api/destinations
-// stream: POST {"stream":"/stream/front/large","feeds":["video0","audio0"]} /api/streams
-// GET /api/streams/all
-// GET /api/destinations/all
-// DELETE /api/streams</stream_name>
-// DELETE /api/destinations</id>
-// DELETE /api/streams/all
-// DELETE /api/destinations/all

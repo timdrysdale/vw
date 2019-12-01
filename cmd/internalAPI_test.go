@@ -73,7 +73,6 @@ func TestInternalAPIBadCommand(t *testing.T) {
 
 	cmd := []byte(`Not even JSON`)
 
-	// note prefix / on stream is removed
 	expected := errBadCommand
 
 	_, err := a.handleAdminMessage(cmd)
@@ -81,6 +80,23 @@ func TestInternalAPIBadCommand(t *testing.T) {
 		t.Error("Failed to throw error")
 	} else if !reflect.DeepEqual(expected, err) {
 		t.Errorf("Got wrong err %s/%s\n", expected, err)
+	}
+
+}
+
+func TestInternalAPIHealthCheck(t *testing.T) {
+
+	a := testApp(false)
+
+	cmd := []byte(`{"verb":"healthcheck"}`)
+
+	expected := []byte(`{"healthcheck":"ok"}`)
+
+	reply, err := a.handleAdminMessage(cmd)
+	if err != nil {
+		t.Errorf("Unexpected error %v", err)
+	} else if !reflect.DeepEqual(expected, reply) {
+		t.Errorf("Got wrong err %s/%s\n", expected, reply)
 	}
 
 }
@@ -218,46 +234,28 @@ func TestInternalAPIDestinationShowAll(t *testing.T) {
 
 }
 
-/*
-
-
-
-// These tests do not start the hub or the websocket client
-// Their channels can be read by the test code, saving mocking
-// and simpler than inspecting the side effects of a running
-// Hub and Websocket
+// Streams
 
 func TestInternalAPIStreamAdd(t *testing.T) {
 
-	rule := []byte(`{"stream":"/stream/large","feeds":["audio","video0"]}`)
-
-	req, err := http.NewRequest("PUT", "/api/streams", bytes.NewBuffer(rule))
-	if err != nil {
-		t.Error(err)
-	}
-	req.Header.Set("Content-Type", "application/json")
-
-	rr := httptest.NewRecorder()
-
 	a := testApp(false)
-	handler := http.InternalAPIrFunc(a.handleStreamAdd)
+
+	rule := `{"stream":"/stream/large","feeds":["audio","video0"]}`
+	cmd := []byte(`{"verb":"add","what":"stream","rule":` + rule + `}`)
+
+	// note prefix / on stream is removed
+	expected := []byte(`{"stream":"stream/large","feeds":["audio","video0"]}`)
 
 	go func() {
-		handler.ServeHTTP(rr, req)
-
-		if status := rr.Code; status != http.StatusOK {
-			t.Errorf("handler returned wrong status code: got %v want %v",
-				status, http.StatusOK)
+		reply, err := a.handleAdminMessage(cmd)
+		if err != nil {
+			t.Error("unexpected error")
+			return
 		}
-
-		//note prefix / on stream is removed
-		expected := `{"stream":"stream/large","feeds":["audio","video0"]}`
-		if rr.Body.String() != expected {
-			t.Errorf("handler returned unexpected body: got %v want %v",
-				rr.Body.String(), expected)
+		if !reflect.DeepEqual(expected, reply) {
+			t.Errorf("Got wrong rule %s/%s\n", expected, reply)
 		}
 	}()
-
 	got := <-a.Hub.Add
 
 	if got.Stream != "stream/large" {
@@ -270,31 +268,25 @@ func TestInternalAPIStreamAdd(t *testing.T) {
 	if got.Feeds[1] != "video0" {
 		t.Error("Wrong feeds")
 	}
-
 }
 
 func TestInternalAPIStreamDelete(t *testing.T) {
 
-	req, err := http.NewRequest("DELETE", "", nil)
-	if err != nil {
-		t.Error(err)
-	}
-
-	req = mux.SetURLVars(req, map[string]string{
-		"stream": "video0",
-	})
-
-	rr := httptest.NewRecorder()
-
 	a := testApp(false)
-	handler := http.InternalAPIrFunc(a.handleStreamDelete)
+
+	cmd := []byte(`{"verb":"delete","what":"stream","which":"video0"}`)
+
+	// note prefix / on stream is removed
+	expected := []byte(`{"deleted":"video0"}`)
 
 	go func() {
-		handler.ServeHTTP(rr, req)
-
-		if status := rr.Code; status != http.StatusOK {
-			t.Errorf("handler returned wrong status code: got %v want %v",
-				status, http.StatusOK)
+		reply, err := a.handleAdminMessage(cmd)
+		if err != nil {
+			t.Error("unexpected error")
+			return
+		}
+		if !reflect.DeepEqual(expected, reply) {
+			t.Errorf("Got wrong rule %s/%s\n", expected, reply)
 		}
 	}()
 
@@ -308,26 +300,21 @@ func TestInternalAPIStreamDelete(t *testing.T) {
 
 func TestInternalAPIStreamDeleteAll(t *testing.T) {
 
-	req, err := http.NewRequest("DELETE", "", nil)
-	if err != nil {
-		t.Error(err)
-	}
-
-	req = mux.SetURLVars(req, map[string]string{
-		"stream": "all",
-	})
-
-	rr := httptest.NewRecorder()
-
 	a := testApp(false)
-	handler := http.InternalAPIrFunc(a.handleStreamDeleteAll)
+
+	cmd := []byte(`{"verb":"delete","what":"stream","which":"all"}`)
+
+	// note prefix / on stream is removed
+	expected := []byte(`{"deleted":"deleteAll"}`)
 
 	go func() {
-		handler.ServeHTTP(rr, req)
-
-		if status := rr.Code; status != http.StatusOK {
-			t.Errorf("handler returned wrong status code: got %v want %v",
-				status, http.StatusOK)
+		reply, err := a.handleAdminMessage(cmd)
+		if err != nil {
+			t.Error("unexpected error")
+			return
+		}
+		if !reflect.DeepEqual(expected, reply) {
+			t.Errorf("Got wrong rule %s/%s\n", expected, reply)
 		}
 	}()
 
@@ -337,72 +324,44 @@ func TestInternalAPIStreamDeleteAll(t *testing.T) {
 		t.Errorf("handler send wrong message on Hub.Delete: got %v want %v",
 			got, "deleteAll")
 	}
-
 }
 
 func TestInternalAPIStreamShow(t *testing.T) {
 
-	req, err := http.NewRequest("PUT", "", nil)
-	if err != nil {
-		t.Error(err)
-	}
-	req.Header.Set("Content-Type", "application/json")
-	req = mux.SetURLVars(req, map[string]string{
-		"stream": "stream/large",
-	})
-
-	rr := httptest.NewRecorder()
-
 	a := testApp(false)
-	handler := http.InternalAPIrFunc(a.handleStreamShow)
-
 	a.Hub.Rules = make(map[string][]string)
 	a.Hub.Rules["stream/large"] = []string{"audio", "video0"}
 
-	handler.ServeHTTP(rr, req)
+	cmd := []byte(`{"verb":"list","what":"stream","which":"stream/large"}`)
+	expected := []byte(`{"feeds":["audio","video0"]}`)
 
-	if status := rr.Code; status != http.StatusOK {
-		t.Errorf("handler returned wrong status code: got %v want %v",
-			status, http.StatusOK)
+	reply, err := a.handleAdminMessage(cmd)
+	if err != nil {
+		t.Error("unexpected error")
+		return
 	}
-
-	expected := "[\"audio\",\"video0\"]"
-	if rr.Body.String() != expected {
-		t.Errorf("handler returned unexpected body: got %v want %v",
-			rr.Body.String(), expected)
+	if !reflect.DeepEqual(expected, reply) {
+		t.Errorf("Got wrong rule %s/%s\n", expected, reply)
 	}
-
 }
 
 func TestInternalAPIStreamShowAll(t *testing.T) {
 
-	req, err := http.NewRequest("PUT", "", nil)
-	if err != nil {
-		t.Error(err)
-	}
-	req.Header.Set("Content-Type", "application/json")
-
-	rr := httptest.NewRecorder()
-
 	a := testApp(false)
-	handler := http.InternalAPIrFunc(a.handleStreamShowAll)
-
 	a.Hub.Rules = make(map[string][]string)
 	a.Hub.Rules["stream/large"] = []string{"audio", "video0"}
 	a.Hub.Rules["stream/medium"] = []string{"audio", "video1"}
 
-	handler.ServeHTTP(rr, req)
+	cmd := []byte(`{"verb":"list","what":"stream","which":"all"}`)
+	expected := []byte(`{"stream/large":["audio","video0"],"stream/medium":["audio","video1"]}`)
 
-	if status := rr.Code; status != http.StatusOK {
-		t.Errorf("handler returned wrong status code: got %v want %v",
-			status, http.StatusOK)
+	reply, err := a.handleAdminMessage(cmd)
+	if err != nil {
+		t.Error("unexpected error")
+		return
 	}
-
-	expected := `{"stream/large":["audio","video0"],"stream/medium":["audio","video1"]}`
-	if rr.Body.String() != expected {
-		t.Errorf("handler returned unexpected body: got %v want %v",
-			rr.Body.String(), expected)
+	if !reflect.DeepEqual(expected, reply) {
+		t.Errorf("Got wrong rule %s/%s\n", expected, reply)
 	}
 
 }
-*/
