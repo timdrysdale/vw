@@ -65,7 +65,7 @@ Configure the streams
 
 You should immediately be able to see your video streams if your browser is connected to your relay server. See [timdrysdale/crossbar](https://github.com/timdrysdale/crossbar) for a relay server.
 
-## API
+## HTTP/JSON API
 
 The API allows rules to be added, deleted, and listed.
 
@@ -124,6 +124,102 @@ or
 
     $ curl -X DELETE http://localhost:8888/api/destinations/all
 
+
+## WS/JSON API
+
+For external control over the destinations, it may in some cases be simpler to use VW's JSON api, but this requires care to be paid to securing the endpoint destination you assign to your apiRule, which should use a bidirectional data relay.
+
+To start VW and automatically connect the API to an endpoint (must be bidirectional, i.e. ```/bi/...```), set environment variable `VW_API`, e.g.
+```
+export VW_API=wss://some.relay.server:443/bi/some/where/unique
+vw stream
+```
+
+Then connect to your VW instance from another machine with a websocket client. For demonstration purposes, you can connect using ```websocat``` and type commands interactively.
+
+``` 
+websocat - wss://some.relay.server:443/bi/some/where/unique
+```
+
+The commands are slightly more consistent than the REST-ish API.
+```
+-> {"verb":"healthcheck"}
+<- {"healthcheck":"ok"}
+```
+
+Adding streams and destinations:
+```
+-> {"verb":"add","what":"destination","rule":{"stream":"video0","destination":"wss://some.relay.server/in/video0","id":"0"}}
+<- {"id":"0","stream":"video0","destination":"wss://some.relay.server/in/video0"}
+
+-> {"verb":"add","what":"stream","rule":{"stream":"video0","feeds":["video0","audio0"]}}
+<- {"stream":"video0","feeds":["video0","audio0"]}
+```
+
+Listing what you have individually:
+
+```
+-> {"verb":"list","what":"stream","which":"video0"}
+<- {"feeds":["video0","audio0"]}
+
+-> {"verb":"list","what":"stream","which":"doesnotexist"}
+<- {"feeds":null}
+
+-> {"verb":"list","what":"destination","which":"0"}
+<- {"id":"0","stream":"video0","destination":"wss://some.relay.server/in/video0"}
+```
+
+or everything ...
+```
+-> {"verb":"list","what":"stream","which":"all"}
+<- {"video0":["video0","audio0"]}
+   
+-> {"verb":"list","what":"destination","which":"all"}
+<- {"0":{"id":"0","stream":"video0","destination":"wss://some.relay.server/in/video0"},"apiRule":{"id":"apiRule","stream":"api","destination":"wss://some.relay.server:443/bi/some/where/unique"}}
+```
+
+Deleting streams and destinations individually:
+```
+-> {"verb":"delete","what":"stream","which":"video0"}
+<- {"deleted":"video0"}
+   
+-> {"verb":"delete","what":"destination","which":"0"}
+<- {"deleted":"0"}
+```
+
+or deleting all streams (note that the response is deleteAll, to confirm that "all" was treated specially:
+```
+<- {"verb":"delete","what":"stream","which":"all"}
+<- {"deleted":"deleteAll"}
+```
+
+### Footguns
+
+Only minimal footgun avoidance is included. 
+
+- You cannot delete the apiRule from the WS/JSON API 
+
+```
+-> {"verb":"delete","what":"destination","which":"apiRule"}
+<- {"error":"Cannot delete apiRule"}
+```
+- Issuing delete all destinations from the WS/JSON API does indeed delete all rules, but the apiRule is immediately re-instated
+
+```   
+-> {"verb":"delete","what":"destination","which":"all"}
+(no response because it disconnected itself, then reconnected)
+```
+
+- Deletes issued via the HTTP/JSON API do NOT have these protections - but since you can access that API too, you can reinstate as you please
+- You can modify the apiRule, which will cause an immediate disconnect. The new destination needs to be working or else you
+will be locked out, as it were
+
+- Bad commands just throw an error
+
+```
+-> Not even JSON
+<- {"error":"Unrecognised Command"}
+```
 
 ## Identifying your devices
 
