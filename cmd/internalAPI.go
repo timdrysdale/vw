@@ -116,10 +116,18 @@ func (app *App) handleAdminMessage(msg []byte) ([]byte, error) {
 					err = errBadCommand
 				case "all":
 					app.Websocket.Delete <- "deleteAll"
+					// don't lock ourselves out!
+					if app.Opts.API != "" {
+						app.Websocket.Add <- rwc.Rule{Stream: "api", Destination: app.Opts.API, Id: "apiRule"}
+					}
 					reply = []byte(`{"deleted":"deleteAll"}`)
 				default:
-					app.Websocket.Delete <- cmd.Which
-					reply = []byte(`{"deleted":"` + cmd.Which + `"}`)
+					if cmd.Which != "apiRule" {
+						app.Websocket.Delete <- cmd.Which
+						reply = []byte(`{"deleted":"` + cmd.Which + `"}`)
+					} else {
+						reply = []byte(`{"error":"Cannot delete apiRule"}`)
+					}
 				}
 			case "list":
 				switch cmd.Which {
