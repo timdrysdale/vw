@@ -26,6 +26,7 @@ type Specification struct {
 	HttpFlushMs        int    `default:"5"`
 	HttpTimeoutMs      int    `default:"1000"`
 	CpuProfile         string `default:""`
+	API                string `default:""`
 }
 
 func init() {
@@ -101,6 +102,12 @@ var streamCmd = &cobra.Command{
 		go app.Hub.RunWithStats(app.Closed)
 
 		go app.Websocket.Run(app.Closed)
+
+		go app.internalAPI("api")
+
+		if app.Opts.API != "" {
+			app.Websocket.Add <- rwc.Rule{Stream: "api", Destination: app.Opts.API, Id: "apiRule"}
+		}
 
 		app.WaitGroup.Add(1)
 		go app.startHttp()
