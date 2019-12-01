@@ -59,6 +59,7 @@ type RuleStream struct {
 }
 
 var errBadCommand = errors.New("Unrecognised Command")
+var errNoDeleteApiRule = errors.New("Cannot delete apiRule")
 
 // JSON API - note change to singular stream and destination
 //
@@ -126,7 +127,7 @@ func (app *App) handleAdminMessage(msg []byte) ([]byte, error) {
 						app.Websocket.Delete <- cmd.Which
 						reply = []byte(`{"deleted":"` + cmd.Which + `"}`)
 					} else {
-						reply = []byte(`{"error":"Cannot delete apiRule"}`)
+						err = errNoDeleteApiRule
 					}
 				}
 			case "list":

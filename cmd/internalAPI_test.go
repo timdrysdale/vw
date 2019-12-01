@@ -162,10 +162,29 @@ func TestInternalAPIDestinationDelete(t *testing.T) {
 	}
 }
 
-func TestInternalAPIDestinationDeleteAll(t *testing.T) {
+func TestInternalAPIDestinationDeleteAPIRule(t *testing.T) {
 
 	a := testApp(false)
 
+	cmd := []byte(`{"verb":"delete","what":"destination","which":"apiRule"}`)
+
+	// note prefix / on stream is removed
+	expected := errNoDeleteApiRule //will be put into error message by internalAPI
+
+	_, err := a.handleAdminMessage(cmd)
+	if err == nil {
+		t.Error("Failed to throw error")
+		return
+	}
+	if !reflect.DeepEqual(expected, err) {
+		t.Errorf("Got wrong response %s/%s\n", expected, err)
+	}
+}
+
+func TestInternalAPIDestinationDeleteAll(t *testing.T) {
+
+	a := testApp(false)
+	a.Opts.API = "wss://some.relay.server:443/bi/some/where/unique"
 	cmd := []byte(`{"verb":"delete","what":"destination","which":"all"}`)
 
 	// note prefix / on stream is removed
@@ -186,6 +205,15 @@ func TestInternalAPIDestinationDeleteAll(t *testing.T) {
 
 	if got != "deleteAll" {
 		t.Error("Wrong Id")
+	}
+
+	added := <-a.Websocket.Add
+
+	if added.Id != "apiRule" {
+		t.Error("Did not reinstate apiRule")
+	}
+	if added.Destination != a.Opts.API {
+		t.Error("Did not reinstate apiRule with correct address")
 	}
 }
 
