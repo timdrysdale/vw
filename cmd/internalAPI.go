@@ -37,7 +37,7 @@ func (app *App) internalAPI(topic string) {
 			if err == nil {
 				c.Hub.Broadcast <- hub.Message{Sender: *c, Data: reply, Type: websocket.TextMessage, Sent: time.Now()} //mmmm type needed here == too much coupling ...!!
 			} else {
-				c.Hub.Broadcast <- hub.Message{Sender: *c, Data: []byte(err.Error()), Type: websocket.TextMessage, Sent: time.Now()}
+				c.Hub.Broadcast <- hub.Message{Sender: *c, Data: []byte(`{"error":"` + err.Error() + `"}`), Type: websocket.TextMessage, Sent: time.Now()}
 			}
 
 		case <-app.Closed:
@@ -84,6 +84,10 @@ func (app *App) handleAdminMessage(msg []byte) ([]byte, error) {
 
 	err := json.Unmarshal(msg, &cmd)
 
+	if err != nil {
+		return reply, errBadCommand
+	}
+
 	switch cmd.What {
 	case "destination":
 		switch cmd.Verb {
@@ -99,10 +103,10 @@ func (app *App) handleAdminMessage(msg []byte) ([]byte, error) {
 				err = errBadCommand
 			case "all":
 				app.Websocket.Delete <- "deleteAll"
-				reply, err = json.Marshal("deleteAll")
+				reply = []byte(`{"deleted":"deleteAll"}`)
 			default:
 				app.Websocket.Delete <- cmd.Which
-				reply, err = json.Marshal(cmd.Which)
+				reply = []byte(`{"deleted":"` + cmd.Which + `"}`)
 			}
 		case "list":
 			switch cmd.Which {
@@ -116,6 +120,8 @@ func (app *App) handleAdminMessage(msg []byte) ([]byte, error) {
 		default:
 			err = errBadCommand
 		}
+	case "healthcheck":
+		reply = []byte(`{"healthcheck":"ok"}`)
 	case "stream":
 		switch cmd.Verb {
 		case "add":
@@ -130,10 +136,10 @@ func (app *App) handleAdminMessage(msg []byte) ([]byte, error) {
 				err = errBadCommand
 			case "all":
 				app.Hub.Delete <- "deleteAll"
-				reply, err = json.Marshal("deleteAll")
+				reply = []byte(`{"deleted":"deleteAll"}`)
 			default:
 				app.Hub.Delete <- cmd.Which
-				reply, err = json.Marshal(cmd.Which)
+				reply = []byte(`{"deleted":"` + cmd.Which + `"}`)
 			}
 		case "list":
 			switch cmd.Which {
