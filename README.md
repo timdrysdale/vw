@@ -4,7 +4,7 @@
 
 ![alt text][status] ![alt text][coverage]
 
-Video over websockets, a dynamically-reconfigurable golang alternative to the node.js-based relay in [phoboslab/jsmpeg](https://github.com/phoboslabs/msjpeg).
+Video over websockets, a dynamically-reconfigurable golang alternative to the node.js-based relay in [phoboslab/jsmpeg](https://github.com/phoboslab/jsmpeg).
 
 ## Why?
 
