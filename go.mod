@@ -18,6 +18,7 @@ require (
 	github.com/spf13/cobra v0.0.5
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/timdrysdale/agg v0.0.0-20191019095533-60164dd8a269
+	github.com/timdrysdale/br v0.0.0-20191201185230-797812fbabf1 // indirect
 	github.com/timdrysdale/chanstats v0.0.0-20190915011233-b0c6a75b4ff9 // indirect
 	github.com/timdrysdale/hub v0.0.0-20191012173646-ac51456fe28f
 	github.com/timdrysdale/reconws v0.0.0-20191012131359-34f25fee9e0e

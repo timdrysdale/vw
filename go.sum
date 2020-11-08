@@ -59,6 +59,8 @@ github.com/timdrysdale/agg v0.0.0-20191002201227-c0886f93dc57 h1:hjly/7bRW8AwxjB
 github.com/timdrysdale/agg v0.0.0-20191002201227-c0886f93dc57/go.mod h1:Fcj/YjolKH3R7NPbwf7vtq7XAivGzm4wp0L9m5FCKCY=
 github.com/timdrysdale/agg v0.0.0-20191019095533-60164dd8a269 h1:TSf3tz9azP8orzvx6JUT7aJf3qNBS12fF8rVQTmXpLU=
 github.com/timdrysdale/agg v0.0.0-20191019095533-60164dd8a269/go.mod h1:Fcj/YjolKH3R7NPbwf7vtq7XAivGzm4wp0L9m5FCKCY=
+github.com/timdrysdale/br v0.0.0-20191201185230-797812fbabf1 h1:EwbmS64zOcVlHaB9fCLkR0vMHh7k8Y58WELRHCvbD5A=
+github.com/timdrysdale/br v0.0.0-20191201185230-797812fbabf1/go.mod h1:XvDUaJJYSPydIxVh2yio67htBGC4QJ8sRK0WduFcrS4=
 github.com/timdrysdale/chanstats v0.0.0-20190915011233-b0c6a75b4ff9 h1:drg6ML8pHF5/9FTDxRmG0DDRxL69Ot2lFvevU6k2Yoo=
 github.com/timdrysdale/chanstats v0.0.0-20190915011233-b0c6a75b4ff9/go.mod h1:lqmmY401adQH5YSEDoZp+RLbW36EgAvmIiHf1+24KGY=
 github.com/timdrysdale/hub v0.0.0-20191002132940-be06fdb6a1ce h1:Dx90H1qHNOH53w8px/hiPakeSbGH2dN+NkF8+AL5q10=
