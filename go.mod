@@ -3,6 +3,7 @@ module github.com/timdrysdale/vw
 go 1.12
 
 require (
+	github.com/dgrijalva/jwt-go v3.2.0+incompatible // indirect
 	github.com/eclesh/welford v0.0.0-20150116075914-eec62615b1f0
 	github.com/gobwas/httphead v0.0.0-20180130184737-2c6c146eadee // indirect
 	github.com/gobwas/pool v0.2.0 // indirect
@@ -22,6 +23,7 @@ require (
 	github.com/timdrysdale/br v0.0.0-20191201185230-797812fbabf1 // indirect
 	github.com/timdrysdale/chanstats v0.0.0-20190915011233-b0c6a75b4ff9 // indirect
 	github.com/timdrysdale/counter v0.0.0-20190913215754-80952351755e
+	github.com/timdrysdale/crossbar v0.2.1
 	github.com/timdrysdale/hub v0.0.0-20191012173646-ac51456fe28f
 	github.com/timdrysdale/reconws v0.0.0-20191012131359-34f25fee9e0e
 	github.com/timdrysdale/rwc v0.0.0-20191011123131-00e6abe5e8d0
