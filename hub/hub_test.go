@@ -15,7 +15,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/assert"
-	"github.com/timdrysdale/counter"
+	"github.com/timdrysdale/vw/counter"
 )
 
 func TestInstantiateHub(t *testing.T) {

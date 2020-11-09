@@ -91,7 +91,12 @@ func (h *Hub) Run(closed chan struct{}) {
 
 			go client.RelayIn(client.Context)
 			go client.RelayOut(client.Context)
-			go ws.ReconnectAuth(client.Context, urlStr, token)
+
+			if token == "" {
+				go ws.Reconnect(client.Context, urlStr)
+			} else {
+				go ws.ReconnectAuth(client.Context, urlStr, token)
+			}
 			//user must check stats to learn of errors
 			// an RPC style return on start is of limited value because clients are long lived
 			// so we'll need to check the stats later anyway; better just to do things one way
