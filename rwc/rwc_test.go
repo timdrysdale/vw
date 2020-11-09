@@ -3,6 +3,7 @@ package rwc
 import (
 	"bufio"
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -15,10 +16,14 @@ import (
 
 	"github.com/gorilla/websocket"
 	log "github.com/sirupsen/logrus"
+	"github.com/stretchr/testify/assert"
+	crossbar "github.com/timdrysdale/crossbar/cmd"
 	"github.com/timdrysdale/vw/agg"
 	"github.com/timdrysdale/vw/hub"
 	"github.com/timdrysdale/vw/reconws"
 )
+
+var testAuthToken string = "some.test.token"
 
 func init() {
 
@@ -50,6 +55,46 @@ func TestInstantiateHub(t *testing.T) {
 		t.Error("Hub.Broadcast channel of wrong type")
 	}
 
+}
+
+func TestAddRuleAuth(t *testing.T) {
+
+	mh := agg.New()
+	h := New(mh)
+
+	closed := make(chan struct{})
+	defer close(closed)
+
+	go h.Run(closed)
+
+	// Create test server with the echo handler.
+	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		echo(w, r)
+	}))
+	defer s.Close()
+
+	id := "rule0"
+	stream := "stream/large"
+	destination := "ws" + strings.TrimPrefix(s.URL, "http") //s.URL //"ws://localhost:8081"
+	token := "some.test.token"
+	r := &Rule{Id: id,
+		Stream:      stream,
+		Destination: destination,
+		Token:       token,
+	}
+
+	h.Add <- *r
+
+	time.Sleep(time.Millisecond)
+
+	if _, ok := h.Rules[id]; !ok {
+		t.Error("Rule not registered in Rules")
+
+	} else {
+		assert.Equal(t, h.Rules[id].Destination, destination)
+		assert.Equal(t, h.Rules[id].Stream, stream)
+		assert.Equal(t, h.Rules[id].Token, token)
+	}
 }
 
 func TestAddRule(t *testing.T) {
@@ -452,6 +497,67 @@ func TestDeleteAllRule(t *testing.T) {
 	}
 	if _, ok := h.Rules[id2]; ok {
 		t.Error("Deleted rule registered in Rules")
+	}
+}
+
+func TestSendMessageTopicAuth(t *testing.T) {
+
+	// Create test server with the echo handler.
+	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		authShout(w, r)
+	}))
+	defer s.Close()
+
+	closed := make(chan struct{})
+	defer close(closed)
+
+	mh := agg.New()
+	go mh.Run(closed)
+
+	time.Sleep(time.Millisecond)
+
+	h := New(mh)
+	go h.Run(closed)
+
+	id := "rule0"
+	stream := "medium"
+	destination := "ws" + strings.TrimPrefix(s.URL, "http")
+	token := testAuthToken
+
+	r := &Rule{Id: id,
+		Stream:      stream,
+		Destination: destination,
+		Token:       token,
+	}
+
+	h.Add <- *r
+
+	time.Sleep(time.Millisecond)
+
+	if _, ok := h.Rules[id]; !ok {
+		t.Error("Rule not registered in Rules")
+	}
+
+	reply := make(chan hub.Message)
+
+	c := &hub.Client{Hub: mh.Hub, Name: "a", Topic: stream, Send: reply}
+
+	h.Messages.Register <- c
+
+	time.Sleep(1 * time.Millisecond)
+
+	payload := []byte("test message")
+	shoutedPayload := []byte("TEST MESSAGE")
+
+	mh.Broadcast <- hub.Message{Data: payload, Type: websocket.TextMessage, Sender: *c, Sent: time.Now()}
+
+	select {
+	case msg := <-reply:
+		if bytes.Compare(msg.Data, shoutedPayload) != 0 {
+			t.Error("Got wrong message")
+		}
+	case <-time.After(10 * time.Millisecond):
+		t.Error("timed out waiting for message")
 	}
 }
 
@@ -867,6 +973,54 @@ func report(w http.ResponseWriter, r *http.Request, msgChan chan reconws.WsMessa
 		}
 		msgChan <- reconws.WsMessage{Data: message, Type: mt}
 	}
+}
+
+func authShout(w http.ResponseWriter, r *http.Request) {
+	c, err := upgrader.Upgrade(w, r, nil)
+	if err != nil {
+		return
+	}
+	defer c.Close()
+
+	mt, message, err := c.ReadMessage()
+	if err != nil {
+		return
+	}
+
+	reply := crossbar.AuthMessage{
+		Authorised: false,
+		Token:      testAuthToken,
+		Reason:     "Denied", //not an official message ...
+	}
+
+	if string(message) == testAuthToken {
+		reply = crossbar.AuthMessage{
+			Authorised: true,
+			Reason:     "ok",
+		}
+	}
+
+	message, err = json.Marshal(&reply)
+
+	err = c.WriteMessage(mt, message)
+	if err != nil {
+
+		return
+	}
+
+	//now ECHO (shout!)
+	for {
+		mt, message, err := c.ReadMessage()
+		if err != nil {
+			break
+		}
+		message = []byte(strings.ToUpper(string(message)))
+		err = c.WriteMessage(mt, message)
+		if err != nil {
+			break
+		}
+	}
+
 }
 
 func shout(w http.ResponseWriter, r *http.Request) {
