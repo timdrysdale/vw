@@ -4,6 +4,7 @@ github.com/coreos/etcd v3.3.10+incompatible/go.mod h1:uF7uidLiAD3TWHmW31ZFd/JWoc
 github.com/coreos/go-etcd v2.0.0+incompatible/go.mod h1:Jez6KQU2B/sWsbdaef3ED8NzMklzPG4d5KIOhIy30Tk=
 github.com/coreos/go-semver v0.2.0/go.mod h1:nnelYz7RCh+5ahJtPPxZlU+153eP4D4r3EedlOD2RNk=
 github.com/cpuguy83/go-md2man v1.0.10/go.mod h1:SmD6nW6nTyfqj6ABTjUi3V3JVMnlJmwcJI5acqYI6dE=
+github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c=
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/eclesh/welford v0.0.0-20150116075914-eec62615b1f0 h1:kQ0PoUSzoqBCdOXbrrZtBGHZOs46U8Aj0BG1Xa+tq7w=
 github.com/eclesh/welford v0.0.0-20150116075914-eec62615b1f0/go.mod h1:Lt9Nv8E2/1kmk2nD0nTZTae7qFRCXPJV6q7Debf1An8=
@@ -39,6 +40,7 @@ github.com/magiconair/properties v1.8.0/go.mod h1:PppfXfuXeibc/6YijjN8zIbojt8czP
 github.com/mitchellh/go-homedir v1.1.0/go.mod h1:SfyaCUpYCn1Vlf4IUYiD9fPX4A5wJrkLzIz1N1q0pr0=
 github.com/mitchellh/mapstructure v1.1.2/go.mod h1:FVVH3fgwuzCH5S8UJGiWEs2h04kUh9fWfEaFds41c1Y=
 github.com/pelletier/go-toml v1.2.0/go.mod h1:5z9KED0ma1S8pY6P1sdut58dfprrGBbd/94hg7ilaic=
+github.com/pmezard/go-difflib v1.0.0 h1:4DBwDE0NGyQoBHbLQYPwSUPoCMWR5BEzIk/f1lZbAQM=
 github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=
 github.com/russross/blackfriday v1.5.2/go.mod h1:JO/DiYxRf+HjHt06OyowR9PTA263kcR/rfWxYHBV53g=
 github.com/sirupsen/logrus v1.4.2 h1:SPIRibHv4MatM3XXNO2BJeFLZwZ2LvZgfQ5+UNI2im4=
@@ -54,6 +56,7 @@ github.com/spf13/pflag v1.0.5 h1:iy+VFUOCP1a+8yFto/drg2CJ5u0yRoB7fZw3DKv/JXA=
 github.com/spf13/pflag v1.0.5/go.mod h1:McXfInJRrz4CZXVZOBLb0bTZqETkiAhM9Iw0y3An2Bg=
 github.com/spf13/viper v1.3.2/go.mod h1:ZiWeW+zYFKm7srdB9IoDzzZXaJaI5eL9QjNiN/DMA2s=
 github.com/stretchr/objx v0.1.1/go.mod h1:HFkY916IF+rwdDfMAkV7OtwuqBVzrE8GR6GFx+wExME=
+github.com/stretchr/testify v1.2.2 h1:bSDNvY7ZPG5RlJ8otE/7V6gMiyenm9RtJ7IUVIAoJ1w=
 github.com/stretchr/testify v1.2.2/go.mod h1:a8OnRcib4nhh0OaRAV+Yts87kKdq0PP7pXfy6kDkUVs=
 github.com/timdrysdale/agg v0.0.0-20191002201227-c0886f93dc57 h1:hjly/7bRW8AwxjBgA9r1HaJaK4nzCUy9cCtgcDO73j0=
 github.com/timdrysdale/agg v0.0.0-20191002201227-c0886f93dc57/go.mod h1:Fcj/YjolKH3R7NPbwf7vtq7XAivGzm4wp0L9m5FCKCY=
@@ -63,6 +66,8 @@ github.com/timdrysdale/br v0.0.0-20191201185230-797812fbabf1 h1:EwbmS64zOcVlHaB9
 github.com/timdrysdale/br v0.0.0-20191201185230-797812fbabf1/go.mod h1:XvDUaJJYSPydIxVh2yio67htBGC4QJ8sRK0WduFcrS4=
 github.com/timdrysdale/chanstats v0.0.0-20190915011233-b0c6a75b4ff9 h1:drg6ML8pHF5/9FTDxRmG0DDRxL69Ot2lFvevU6k2Yoo=
 github.com/timdrysdale/chanstats v0.0.0-20190915011233-b0c6a75b4ff9/go.mod h1:lqmmY401adQH5YSEDoZp+RLbW36EgAvmIiHf1+24KGY=
+github.com/timdrysdale/counter v0.0.0-20190913215754-80952351755e h1:177pyMsKOGMPW8qYJhR9BJmvIAI+zQwC2mCoYTSN/Hg=
+github.com/timdrysdale/counter v0.0.0-20190913215754-80952351755e/go.mod h1:aHjHHnKeDbjiA+U0lMdD1H+1G34RQ0BjLAlN6VW5U64=
 github.com/timdrysdale/hub v0.0.0-20191002132940-be06fdb6a1ce h1:Dx90H1qHNOH53w8px/hiPakeSbGH2dN+NkF8+AL5q10=
 github.com/timdrysdale/hub v0.0.0-20191002132940-be06fdb6a1ce/go.mod h1:EPsjeLI0BMLjsgnGVbpASY1ivlwrEBtAEJyqY66hNdU=
 github.com/timdrysdale/hub v0.0.0-20191012173646-ac51456fe28f h1:7B4Hip934H9BZASP3gNP4K7IwkwcjavdDWPRZM0elpo=
