@@ -8,7 +8,7 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/gorilla/websocket"
 	log "github.com/sirupsen/logrus"
-	"github.com/timdrysdale/hub"
+	"github.com/timdrysdale/vw/hub"
 )
 
 const (

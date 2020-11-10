@@ -12,9 +12,9 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/gorilla/websocket"
 	log "github.com/sirupsen/logrus"
-	"github.com/timdrysdale/agg"
-	"github.com/timdrysdale/hub"
-	"github.com/timdrysdale/reconws"
+	"github.com/timdrysdale/vw/agg"
+	"github.com/timdrysdale/vw/hub"
+	"github.com/timdrysdale/vw/reconws"
 )
 
 func init() {

@@ -7,7 +7,7 @@ import (
 	"strings"
 
 	"github.com/gorilla/mux"
-	"github.com/timdrysdale/rwc"
+	"github.com/timdrysdale/vw/rwc"
 )
 
 // curl -X GET http://localhost:8888/api/destinations/all

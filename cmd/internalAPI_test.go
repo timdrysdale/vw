@@ -6,9 +6,9 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
-	"github.com/timdrysdale/agg"
-	"github.com/timdrysdale/hub"
-	"github.com/timdrysdale/rwc"
+	"github.com/timdrysdale/vw/agg"
+	"github.com/timdrysdale/vw/hub"
+	"github.com/timdrysdale/vw/rwc"
 )
 
 // Commands that we are testing ...
@@ -109,7 +109,7 @@ func TestInternalAPIDestinationAdd(t *testing.T) {
 	cmd := []byte(`{"verb":"add","what":"destination","rule":` + rule + `}`)
 
 	// note prefix / on stream is removed
-	expected := []byte(`{"id":"00","stream":"stream/large","destination":"wss://video.practable.io:443/large"}`)
+	expected := []byte(`{"id":"00","stream":"stream/large","destination":"wss://video.practable.io:443/large","token":""}`)
 
 	go func() {
 		reply, err := a.handleAdminMessage(cmd)
@@ -224,7 +224,7 @@ func TestInternalAPIDestinationShow(t *testing.T) {
 	a.Websocket.Rules["00"] = rwc.Rule{Destination: "wss://video.practable.io:443/large", Stream: "stream/large", Id: "00"}
 
 	cmd := []byte(`{"verb":"list","what":"destination","which":"00"}`)
-	expected := []byte(`{"id":"00","stream":"stream/large","destination":"wss://video.practable.io:443/large"}`)
+	expected := []byte(`{"id":"00","stream":"stream/large","destination":"wss://video.practable.io:443/large","token":""}`)
 
 	reply, err := a.handleAdminMessage(cmd)
 	if err != nil {
@@ -249,7 +249,7 @@ func TestInternalAPIDestinationShowAll(t *testing.T) {
 		Id:          "01"}
 
 	cmd := []byte(`{"verb":"list","what":"destination","which":"all"}`)
-	expected := []byte(`{"stream/large":{"id":"00","stream":"stream/large","destination":"wss://somewhere"},"stream/medium":{"id":"01","stream":"stream/medium","destination":"wss://overthere"}}`)
+	expected := []byte(`{"stream/large":{"id":"00","stream":"stream/large","destination":"wss://somewhere","token":""},"stream/medium":{"id":"01","stream":"stream/medium","destination":"wss://overthere","token":""}}`)
 
 	reply, err := a.handleAdminMessage(cmd)
 	if err != nil {
