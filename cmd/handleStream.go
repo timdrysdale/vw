@@ -8,7 +8,7 @@ import (
 
 	"github.com/gorilla/mux"
 	log "github.com/sirupsen/logrus"
-	"github.com/timdrysdale/agg"
+	"github.com/timdrysdale/vw/agg"
 )
 
 func (app *App) handleStreamShowAll(w http.ResponseWriter, r *http.Request) {

@@ -9,8 +9,8 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
-	"github.com/timdrysdale/agg"
-	"github.com/timdrysdale/rwc"
+	"github.com/timdrysdale/vw/agg"
+	"github.com/timdrysdale/vw/rwc"
 
 	"github.com/kelseyhightower/envconfig"
 	log "github.com/sirupsen/logrus"

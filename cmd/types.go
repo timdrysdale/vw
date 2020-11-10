@@ -5,9 +5,9 @@ import (
 	"sync"
 
 	"github.com/gorilla/websocket"
-	"github.com/timdrysdale/agg"
-	"github.com/timdrysdale/hub"
-	"github.com/timdrysdale/rwc"
+	"github.com/timdrysdale/vw/agg"
+	"github.com/timdrysdale/vw/hub"
+	"github.com/timdrysdale/vw/rwc"
 )
 
 type App struct {

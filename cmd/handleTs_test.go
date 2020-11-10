@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"github.com/gorilla/mux"
-	"github.com/timdrysdale/hub"
+	"github.com/timdrysdale/vw/hub"
 )
 
 func TestHandleTsFrameBoundaries(t *testing.T) {
