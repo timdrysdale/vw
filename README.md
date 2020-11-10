@@ -4,7 +4,7 @@
 
 ![alt text][status] ![alt text][coverage]
 
-Video over websockets, a dynamically-reconfigurable golang alternative to the node.js-based relay in [phoboslab/jsmpeg](https://github.com/phoboslabs/msjpeg).
+Video over websockets, a dynamically-reconfigurable golang alternative to the node.js-based relay in [phoboslab/jsmpeg](https://github.com/phoboslab/jsmpeg).
 
 ## Why?
 
@@ -317,7 +317,7 @@ The code was initially developed with ```nhooyr/websocket``` then ```gobwas/ws``
 
 
 
-[status]: https://img.shields.io/badge/alpha-do%20not%20use-orange "Alpha status, do not use" 
+[status]: https://img.shields.io/badge/alpha-working-green "Alpha status, working" 
 [logo]: ./img/logo.png "VW logo"
 [internals]: ./img/internals.png "Diagram of VW internals showing http server, websocket client, mux, monitor, and syscall for ffmpegs"
 [coverage]: https://img.shields.io/badge/coverage-71%25-yellowgreen "coverage 71%"
