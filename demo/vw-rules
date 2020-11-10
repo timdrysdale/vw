@@ -1,0 +1,3 @@
+#!/bin/sh
+curl -X POST -H "Content-Type: application/json" -d '{"stream":"video","destination":"wss://relay.practable.io/in/demo/video","id":"0","token":"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJ3c3M6Ly9yZWxheS5wcmFjdGFibGUuaW8vaW4vZGVtby92aWRlbyIsImlhdCI6MTUxNjIzOTAyMiwibmJmIjoxNjA0OTU3OTA3LCJleHAiOjE2MDQ5NTk5MDd9.D4YnqGMRNeL_9HreiP2HiSvy3bCpAMosN5WFGD6bBU4"}' http://localhost:8888/api/destinations
+curl -X POST -H "Content-Type: application/json" -d '{"stream":"pendulum","destination":"wss://relay.practable.io/bi/demo/data","id":"1"}' http://localhost:8888/api/destinations  

@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	"github.com/gorilla/mux"
-	"github.com/timdrysdale/rwc"
+	"github.com/timdrysdale/vw/rwc"
 )
 
 // These tests do not start the hub or the websocket client
@@ -39,7 +39,7 @@ func TestHandleDestinationAdd(t *testing.T) {
 		}
 
 		// note prefix / on stream is removed
-		expected := `{"id":"00","stream":"stream/large","destination":"wss://video.practable.io:443/large"}`
+		expected := `{"id":"00","stream":"stream/large","destination":"wss://video.practable.io:443/large","token":""}`
 		if rr.Body.String() != expected {
 			t.Errorf("handler returned unexpected body: got %v want %v",
 				rr.Body.String(), expected)
@@ -153,7 +153,7 @@ func TestHandleDestinationShow(t *testing.T) {
 			status, http.StatusOK)
 	}
 
-	expected := `{"id":"00","stream":"/stream/large","destination":"wss://video.practable.io:443/large"}`
+	expected := `{"id":"00","stream":"/stream/large","destination":"wss://video.practable.io:443/large","token":""}`
 	if rr.Body.String() != expected {
 		t.Errorf("handler returned unexpected body: got %v want %v",
 			rr.Body.String(), expected)
@@ -189,7 +189,7 @@ func TestHandleDestinationShowAll(t *testing.T) {
 			status, http.StatusOK)
 	}
 
-	expected := `{"stream/large":{"id":"00","stream":"/stream/large","destination":"wss://somewhere"},"stream/medium":{"id":"01","stream":"/stream/medium","destination":"wss://overthere"}}`
+	expected := `{"stream/large":{"id":"00","stream":"/stream/large","destination":"wss://somewhere","token":""},"stream/medium":{"id":"01","stream":"/stream/medium","destination":"wss://overthere","token":""}}`
 	if rr.Body.String() != expected {
 		t.Errorf("handler returned unexpected body: got %v want %v",
 			rr.Body.String(), expected)

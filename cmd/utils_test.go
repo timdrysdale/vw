@@ -9,8 +9,8 @@ import (
 	"os"
 	"testing"
 
-	"github.com/timdrysdale/agg"
-	"github.com/timdrysdale/rwc"
+	"github.com/timdrysdale/vw/agg"
+	"github.com/timdrysdale/vw/rwc"
 )
 
 var unix = "foo\r\n"
