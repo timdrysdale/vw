@@ -6,9 +6,15 @@
 
 Video over websockets, a dynamically-reconfigurable golang alternative to the node.js-based relay in [phoboslab/jsmpeg](https://github.com/phoboslab/jsmpeg).
 
+## Archive notice 
+This repo is now integrated into [practable/relay](https://github.com/practable/relay) as the command `session host`, which can connect to a `session relay`, and you can connect either from the terminal with `session client` to handle text based tasks, or use some suitable javascript e.g. this [experiment](https://github.com/practable/spinner-amax/tree/main/ui) or a [simple demo](https://github.com/practable/relay-demojs)). Integration into the monorepo is intended to help keep consistency between versions of host/client/relay. 
+
+## Original README.md follows:
+
 ## Why?
 
 ```vw```'s dynamic reconfigurability is intended to make life easier when deploying remote laboratory experiments that use MPEGTS video streams. 
+
 
 ### Background
 
